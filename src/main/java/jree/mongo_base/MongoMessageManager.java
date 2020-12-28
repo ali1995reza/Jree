@@ -108,7 +108,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
     };
 
 
-    private final class RandomConversationIdGenerator implements OperationResultListener<Boolean>
+    private final class RandomConversationIdGenerator implements OperationResultListener<Long>
     {
 
         private long id;
@@ -119,7 +119,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
         }
 
         @Override
-        public void onSuccess(Boolean result) {
+        public void onSuccess(Long result) {
             callBack.onSuccess(id);
         }
 
@@ -163,13 +163,13 @@ public class MongoMessageManager<T> implements MessageManager<T> {
 
 
     @Override
-    public void createConversation(long id, OperationResultListener<Boolean> callback) {
+    public void createConversation(long id, OperationResultListener<Long> callback) {
         messageStore.createNewConversationIndex(id , callback);
     }
 
     @Override
-    public boolean createConversation(long id) {
-        AsyncToSync<Boolean> asyncToSync = new AsyncToSync<>();
+    public long createConversation(long id) {
+        AsyncToSync<Long> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         createConversation(id , asyncToSync);
         return asyncToSync.getResult();
     }
@@ -182,7 +182,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
 
     @Override
     public long createConversation() {
-        AsyncToSync<Long> asyncToSync = new AsyncToSync<>();
+        AsyncToSync<Long> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         createConversation(asyncToSync);
         return asyncToSync.getResult();
     }

@@ -168,8 +168,22 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
     }
 
     @Override
-    public void subscribe(List<Subscribe> subscribes, OperationResultListener<Boolean> result) {
+    public void subscribe(List<Subscribe> subscribes, OperationResultListener<Boolean> callback) {
         assertIfClosed();
+        messageStore.getMessageIds(subscribes, new SingleResultCallback<List<MessageIndex>>() {
+            @Override
+            public void onResult(List<MessageIndex> messageIndexes, Throwable throwable) {
+                if(throwable!=null)
+                {
+                    callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
+                }else {
+
+                    //so now add indexes for this user please !
+
+                }
+            }
+        });
+
     }
 
     @Override

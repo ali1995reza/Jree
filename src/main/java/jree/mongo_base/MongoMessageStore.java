@@ -6,6 +6,7 @@ import com.mongodb.client.result.InsertManyResult;
 import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
+import com.mongodb.internal.async.client.AsyncFindIterable;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.api.*;
@@ -46,7 +47,7 @@ public class MongoMessageStore {
         messageCollection = this.database.getCollection(MESSAGE_COLLECTION_NAME);
         DBStaticFunctions.createIndex(
                 messageCollection  ,
-                Indexes.ascending("conversation" , "id")
+                Indexes.ascending("conversation" , "id" , "disposable")
         );
     }
 
@@ -73,46 +74,71 @@ public class MongoMessageStore {
         Bson filter = eq("_id" , conversation);
         Bson update = inc("counter"  , 1l);
 
-        if(upsert) {
-            messageCounterCollection.findOneAndUpdate(filter, update, FIND_ONE_OPTIONS_WITH_UPSERT , new SingleResultCallback<Document>() {
-                @Override
-                public void onResult(Document document, Throwable throwable) {
+        messageCounterCollection.findOneAndUpdate(filter, update,
+                upsert?FIND_ONE_OPTIONS_WITH_UPSERT:FIND_ONE_OPTIONS_WITHOUT_UPSERT
+                , new SingleResultCallback<Document>() {
+            @Override
+            public void onResult(Document document, Throwable throwable) {
 
-                    if (throwable != null) {
-                        idCallback.onResult(null, throwable);
+                if (throwable != null) {
+                    idCallback.onResult(null, throwable);
+                } else {
+                    if (document == null) {
+                        idCallback.onResult(upsert?1l:-1l, null);
                     } else {
-                        if (document == null) {
-                            idCallback.onResult(1l, null);
-                        } else {
-                            long counter = (long) document.getOrDefault("counter", 0l);
-                            ++counter;
-                            idCallback.onResult(counter, null);
-                        }
+                        long counter = (long) document.getOrDefault("counter", 0l);
+                        ++counter;
+                        idCallback.onResult(counter, null);
                     }
                 }
-            });
-        }else {
-            messageCounterCollection.findOneAndUpdate(filter, update, FIND_ONE_OPTIONS_WITHOUT_UPSERT , new SingleResultCallback<Document>() {
-                @Override
-                public void onResult(Document document, Throwable throwable) {
-
-                    if (throwable != null) {
-                        idCallback.onResult(null, throwable);
-                    } else {
-                        if (document == null) {
-                            idCallback.onResult(-1l, null);
-                        } else {
-                            long counter = (long) document.getOrDefault("counter", 0l);
-                            ++counter;
-                            idCallback.onResult(counter, null);
-                        }
-                    }
-                }
-            });
-        }
+            }
+        });
     }
 
-    public void createNewConversationIndex(long conversation , OperationResultListener<Boolean> callback)
+
+    public void getMessageIds(List<Subscribe> conversation , SingleResultCallback<List<MessageIndex>> callback)
+    {
+        AsyncFindIterable<Document> iterable =
+                messageCounterCollection.find(in("_id" , conversation));
+
+        final List<MessageIndex> indexes = new ArrayList<>();
+
+        iterable.forEach(new Block<Document>() {
+
+
+            @Override
+            public void apply(Document document) {
+
+                indexes.add(
+                        new MessageIndex(
+                                document.getString("_id") ,
+                                (Long) document.getOrDefault("counter" , 0l)
+                        )
+                );
+            }
+        }, new SingleResultCallback<Void>() {
+            @Override
+            public void onResult(Void aVoid, Throwable throwable) {
+                if(throwable!=null)
+                {
+
+                    callback.onResult(null , throwable);
+
+                }else {
+
+                    if(indexes.size()==conversation.size())
+                    {
+
+                        callback.onResult(indexes , null);
+                    }else {
+                        callback.onResult(null , new IllegalStateException("not all conversation found"));
+                    }
+                }
+            }
+        });
+    }
+
+    public void createNewConversationIndex(final long conversation , OperationResultListener<Long> callback)
     {
         messageCollection.updateOne(
                 eq("_id", String.valueOf(conversation)),
@@ -134,7 +160,7 @@ public class MongoMessageStore {
                                 {
                                     callback.onFailed(new FailReason(MongoFailReasonsCodes.RUNTIME_EXCEPTION));
                                 }else {
-                                    callback.onSuccess(true);
+                                    callback.onSuccess(conversation);
                                 }
                             }
                         }
@@ -409,7 +435,7 @@ public class MongoMessageStore {
             ConversationOffset offset = offsets.get(i);
 
             ors[i] = and(eq("conversation" , offset.conversationId()) ,
-                    gt("id" , offset.offset()));
+                    gt("id" , offset.offset()) , eq("disposable" , false));
         }
 
         return or(ors);

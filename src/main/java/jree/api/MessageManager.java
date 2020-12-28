@@ -6,8 +6,8 @@ import java.util.function.Consumer;
 
 public interface MessageManager<T> {
 
-    void createConversation(long id, OperationResultListener<Boolean> callback);
-    boolean createConversation(long id);
+    void createConversation(long id, OperationResultListener<Long> callback);
+    long createConversation(long id);
     void createConversation(OperationResultListener<Long> callback);
     long createConversation();
     void readMessages(List<ReadMessageCriteria> criteria, Consumer<PubMessage<T>> forEach);

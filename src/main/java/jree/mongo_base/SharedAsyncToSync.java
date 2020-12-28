@@ -1,6 +1,5 @@
 package jree.mongo_base;
 
-import java.util.function.Supplier;
 
 final class SharedAsyncToSync {
 

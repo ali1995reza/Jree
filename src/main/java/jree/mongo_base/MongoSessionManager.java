@@ -76,7 +76,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public boolean createClient(long id) {
-        AsyncToSync<Boolean> asyncToSync = new AsyncToSync<>();
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         createClient(id , asyncToSync);
         return asyncToSync.getResult();
     }
@@ -90,7 +90,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public long createClient() {
-        AsyncToSync<Long> asyncToSync = new AsyncToSync<>();
+        AsyncToSync<Long> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         createClient(asyncToSync);
         return asyncToSync.getResult();
     }
@@ -113,7 +113,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public boolean createClientIfNotExists(long id) {
-        AsyncToSync<Boolean> asyncToSync = new AsyncToSync<>();
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         createClientIfNotExists(id , asyncToSync);
         return asyncToSync.getResult();
     }
@@ -136,7 +136,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public long createSession(long clientId) {
-        AsyncToSync<Long> asyncToSync = new AsyncToSync<>();
+        AsyncToSync<Long> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         createSession(clientId , asyncToSync);
         return asyncToSync.getResult();
     }
@@ -211,7 +211,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public Session<T> connectToService(long clientId, long sessionId, SessionEventListener<T> eventListener) {
-        AsyncToSync<Session<T>> asyncToSync = new AsyncToSync<>();
+        AsyncToSync<Session<T>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         connectToService(clientId, sessionId, eventListener , asyncToSync);
         return asyncToSync.getResult();
     }
