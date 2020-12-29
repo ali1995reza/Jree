@@ -48,8 +48,63 @@ public class ConverterList<F , T> implements List<T> {
         }
     }
 
+    private final static class ConverterListIter<F , T> implements ListIterator<T>{
 
-    private ConverterList(List<F> wrapped, Converter<F, T> converter) {
+        private final ListIterator<F> wrapped;
+        private final Converter<F , T> converter;
+
+        private ConverterListIter(ListIterator<F> wrapped, Converter<F, T> converter) {
+            this.wrapped = wrapped;
+            this.converter = converter;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return wrapped.hasNext();
+        }
+
+        @Override
+        public T next() {
+            return converter.convert(wrapped.next());
+        }
+
+        @Override
+        public boolean hasPrevious() {
+            return wrapped.hasPrevious();
+        }
+
+        @Override
+        public T previous() {
+            return converter.convert(wrapped.previous());
+        }
+
+        @Override
+        public int nextIndex() {
+            return wrapped.nextIndex();
+        }
+
+        @Override
+        public int previousIndex() {
+            return wrapped.previousIndex();
+        }
+
+        @Override
+        public void remove() {
+            wrapped.remove();
+        }
+
+        @Override
+        public void set(T t) {
+            throw new IllegalStateException("ops not supported");
+        }
+
+        @Override
+        public void add(T t) {
+            throw new IllegalStateException("ops not supported");
+        }
+    }
+
+    public ConverterList(List<F> wrapped, Converter<F, T> converter) {
         this.wrapped = wrapped;
         this.converter = converter;
     }

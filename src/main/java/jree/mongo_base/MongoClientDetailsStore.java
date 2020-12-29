@@ -43,7 +43,7 @@ public class MongoClientDetailsStore {
                     ?document.getLong(offsetKey):
                     document.getLong("MAX")-20;
 
-            offset = offset<0?0:offset;
+            offset = Math.max(offset, 0l);
 
             offsets.add(
                     new ConversationOffset(
@@ -380,4 +380,29 @@ public class MongoClientDetailsStore {
         }
     }
 
+    void storeMessageOffset(Session session ,
+                            boolean justThisSession ,
+                            List<MessageIndex> indexes ,
+                            SingleResultCallback<InsertManyResult> callback){
+
+
+        List<Document> inserts = new ArrayList<>();
+
+        for(MessageIndex index:indexes)
+        {
+            Document d = new Document().append("client", session.clientId())
+                    .append("conversation", index.conversation())
+                    .append("MAX", index.maxMessageIndex());
+
+            if(justThisSession)
+            {
+                d.append("session" , session.id());
+            }
+
+            inserts.add(d);
+        }
+
+        clientOffsetStoreCollection.insertMany(inserts, callback);
+
+    }
 }

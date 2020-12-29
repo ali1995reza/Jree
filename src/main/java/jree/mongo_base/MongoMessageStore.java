@@ -79,7 +79,6 @@ public class MongoMessageStore {
                 , new SingleResultCallback<Document>() {
             @Override
             public void onResult(Document document, Throwable throwable) {
-
                 if (throwable != null) {
                     idCallback.onResult(null, throwable);
                 } else {
@@ -98,8 +97,15 @@ public class MongoMessageStore {
 
     public void getMessageIds(List<Subscribe> conversation , SingleResultCallback<List<MessageIndex>> callback)
     {
+
         AsyncFindIterable<Document> iterable =
-                messageCounterCollection.find(in("_id" , conversation));
+                messageCounterCollection.find(in("_id" ,
+                        new ConverterList<Subscribe , String>(conversation, new ConverterList.Converter<Subscribe, String>() {
+                            @Override
+                            public String convert(Subscribe subscribe) {
+                                return String.valueOf(subscribe.conversation());
+                            }
+                        })));
 
         final List<MessageIndex> indexes = new ArrayList<>();
 
@@ -140,9 +146,9 @@ public class MongoMessageStore {
 
     public void createNewConversationIndex(final long conversation , OperationResultListener<Long> callback)
     {
-        messageCollection.updateOne(
+        messageCounterCollection.updateOne(
                 eq("_id", String.valueOf(conversation)),
-                max("counter", 0),
+                max("counter", 0l),
                 UPDATE_OPTIONS_WITH_UPSERT,
                 new SingleResultCallback<UpdateResult>() {
                     @Override

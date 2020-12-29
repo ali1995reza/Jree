@@ -1,5 +1,6 @@
 package jree.mongo_base;
 
+import com.mongodb.client.result.InsertManyResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import jree.api.*;
@@ -178,8 +179,25 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
                     callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
                 }else {
 
-                    //so now add indexes for this user please !
+                    for(MessageIndex index:messageIndexes)
+                    {
+                        index.decreaseMessageIndex(1);
+                    }
 
+                    detailsStore.storeMessageOffset(MongoSession.this,
+                            false, messageIndexes,
+                            new SingleResultCallback<InsertManyResult>() {
+                                @Override
+                                public void onResult(InsertManyResult insertManyResult, Throwable throwable) {
+
+                                    if(throwable!=null)
+                                    {
+                                        callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
+                                    }else {
+                                        callback.onSuccess(true);
+                                    }
+                                }
+                            });
                 }
             }
         });
@@ -187,8 +205,10 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
     }
 
     @Override
-    public boolean subscribe(List<Subscribe> subscribes, SubscribeOption subscribeOption) {
-        return false;
+    public boolean subscribe(List<Subscribe> subscribes) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        subscribe(subscribes , asyncToSync);
+        return asyncToSync.getResult();
     }
 
     @Override

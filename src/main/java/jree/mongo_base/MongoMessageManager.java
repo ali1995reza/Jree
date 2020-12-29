@@ -110,8 +110,6 @@ public class MongoMessageManager<T> implements MessageManager<T> {
 
     private final class RandomConversationIdGenerator implements OperationResultListener<Long>
     {
-
-        private long id;
         private final OperationResultListener<Long> callBack;
 
         private RandomConversationIdGenerator(OperationResultListener<Long> callBack) {
@@ -120,7 +118,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
 
         @Override
         public void onSuccess(Long result) {
-            callBack.onSuccess(id);
+            callBack.onSuccess(result);
         }
 
         @Override
@@ -129,9 +127,8 @@ public class MongoMessageManager<T> implements MessageManager<T> {
             {
                 callBack.onFailed(reason);
             }else{
-                id = StaticFunctions.newID();
                 messageStore.createNewConversationIndex(
-                        id ,
+                        StaticFunctions.newID() ,
                         this
                 );
             }

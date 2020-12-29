@@ -30,7 +30,7 @@ public interface Session<T> extends Attachable {
 
     void subscribe(List<Subscribe> subscribes, OperationResultListener<Boolean> result);
 
-    boolean subscribe(List<Subscribe> subscribes, SubscribeOption subscribeOption);
+    boolean subscribe(List<Subscribe> subscribes);
 
     void unsubscribe(List<Long> conversations, OperationResultListener<Boolean> result);
 
