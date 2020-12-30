@@ -12,4 +12,5 @@ public class MongoFailReasonsCodes {
     public final static int SESSION_NOT_ACTIVE = 8;
     public final static int CONVERSATION_NOT_EXISTS = 9;
     public final static int CONVERSATION_ALREADY_EXISTS = 10;
+    public final static int MESSAGE_NOT_FOUND = 11;
 }

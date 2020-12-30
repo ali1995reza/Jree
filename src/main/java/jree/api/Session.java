@@ -15,10 +15,17 @@ public interface Session<T> extends Attachable {
 
     PubMessage<T> publishMessage(Recipient recipient, T message);
 
+    void editMessage(Recipient recipient , long messageId , T newMessage , OperationResultListener<PubMessage<T>> result);
+
+    PubMessage<T> editMessage(Recipient recipient , long messageId , T newMessage);
+
+    void removeMessage(Recipient recipient , long messageId , T newMessage , OperationResultListener<PubMessage<T>> result);
+
+    PubMessage<T> removeMessage(Recipient recipient , long messageId , T newMessage);
+
     void publishDisposableMessage(Recipient recipient , T message ,OperationResultListener<PubMessage<T>> result);
 
     PubMessage<T> publishDisposableMessage(Recipient recipient , T message);
-
 
     void addTag(Recipient recipient, InsertTag tag, OperationResultListener<InsertTagResult> result);
 

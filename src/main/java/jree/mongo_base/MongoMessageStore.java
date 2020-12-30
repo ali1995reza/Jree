@@ -211,6 +211,58 @@ public class MongoMessageStore {
         );
     }
 
+    public <T> void updateMessage(Session editor , Recipient recipient ,
+                              long messageId , T message , BodySerializer<T> serializer , OperationResultListener<PubMessage<T>> callback){
+
+        Bson update = set("body" , serializer.serialize(message));
+        String conversationId = StaticFunctions.uniqueConversationId(editor , recipient);
+        PubMessage.Type type = StaticFunctions.getType(recipient);
+
+        Bson filter = null;
+
+        if(type.is(PubMessage.Type.SESSION_TO_SESSION)){
+
+            filter = and(eq("conversation" , conversationId) ,
+                    eq("id" , messageId) ,
+                    eq("publisher.client" , editor.clientId()) ,
+                    eq("publisher.session" , editor.id()));
+
+        }else {
+
+
+            filter = and(eq("conversation" , conversationId) ,
+                    eq("id" , messageId) ,
+                    eq("publisher.client" , editor.clientId()));
+
+        }
+
+        messageCollection.findOneAndUpdate(
+                filter, update, new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
+                        if(throwable!=null){
+
+                            callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+
+                        }else {
+
+                            if(document==null)
+                            {
+                                callback.onFailed(new FailReason(MongoFailReasonsCodes.MESSAGE_NOT_FOUND));
+                            }else {
+
+                                callback.onSuccess(parseMessage(serializer , document));
+
+                            }
+                        }
+                    }
+                }
+        );
+
+
+    }
+
+
     public void storeDisposableMessage(Session publisher , Recipient recipient ,
                              Object message , BodySerializer serializer , OperationResultListener<PubMessage> callback){
 

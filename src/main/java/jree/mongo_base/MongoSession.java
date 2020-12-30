@@ -83,6 +83,28 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
     }
 
     @Override
+    public void editMessage(Recipient recipient, long messageId, T newMessage, OperationResultListener<PubMessage<T>> result) {
+        messageStore.updateMessage(this , recipient , messageId , newMessage , serializer, result);
+    }
+
+    @Override
+    public PubMessage<T> editMessage(Recipient recipient, long messageId, T newMessage) {
+        AsyncToSync<PubMessage<T>> syncToAsync = SharedAsyncToSync.shared().get().refresh();
+        editMessage(recipient, messageId, newMessage , syncToAsync);
+        return syncToAsync.getResult();
+    }
+
+    @Override
+    public void removeMessage(Recipient recipient, long messageId, T newMessage, OperationResultListener<PubMessage<T>> result) {
+
+    }
+
+    @Override
+    public PubMessage<T> removeMessage(Recipient recipient, long messageId, T newMessage) {
+        return null;
+    }
+
+    @Override
     public void publishDisposableMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T>> callback) {
         assertIfClosed();
         messageStore.storeDisposableMessage(this,
