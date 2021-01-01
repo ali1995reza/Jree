@@ -5,13 +5,13 @@ public class FailReason extends RuntimeException {
     private final int code;
 
     public FailReason(int code) {
-        super();
+        super("Operation fail with code : "+code);
         this.code = code;
     }
 
     public FailReason(Throwable e , int code)
     {
-        super(e);
+        super("Operation fail with code : "+code , e);
         this.code = code;
     }
 

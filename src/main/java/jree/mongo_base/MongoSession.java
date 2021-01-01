@@ -95,13 +95,17 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
     }
 
     @Override
-    public void removeMessage(Recipient recipient, long messageId, T newMessage, OperationResultListener<PubMessage<T>> result) {
-
+    public void removeMessage(Recipient recipient, long messageId, OperationResultListener<PubMessage<T>> result) {
+        messageStore.removeMessage(this , recipient , messageId , serializer , result);
     }
 
     @Override
-    public PubMessage<T> removeMessage(Recipient recipient, long messageId, T newMessage) {
-        return null;
+    public PubMessage<T> removeMessage(Recipient recipient, long messageId) {
+        AsyncToSync<PubMessage<T>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        messageStore.removeMessage(this , recipient , messageId , serializer , asyncToSync);
+
+        return asyncToSync.getResult();
+
     }
 
     @Override

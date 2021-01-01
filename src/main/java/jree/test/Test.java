@@ -150,11 +150,19 @@ public class Test {
         .connectToService(1 , 1 , new MyEventListener("SESSION 1-1"));*/
 
         Session<String> session1_2 = mongoPubSubSystem.sessionManager()
-                .connectToService(1 , 2 , new MyEventListener("SS"));
+                .connectToService(1 , 2 , new EMPTYLISTENER());
 
 
         Recipient recipient = RecipientImpl.conversationRecipient(3371223121818720070l);
 
+
+        long start = System.currentTimeMillis();
+        PubMessage<String> pubMessage =
+                session1_2.editMessage(recipient , 9995l , "Hello New wworrlldd");
+
+        long end = System.currentTimeMillis();
+        System.out.println(end-start);
+        System.out.println(pubMessage);
 
         /*CounterOPListener c = new CounterOPListener(1000000);
         for(int i=1;i<=1000000;i++)

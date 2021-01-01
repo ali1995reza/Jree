@@ -19,9 +19,9 @@ public interface Session<T> extends Attachable {
 
     PubMessage<T> editMessage(Recipient recipient , long messageId , T newMessage);
 
-    void removeMessage(Recipient recipient , long messageId , T newMessage , OperationResultListener<PubMessage<T>> result);
+    void removeMessage(Recipient recipient , long messageId , OperationResultListener<PubMessage<T>> result);
 
-    PubMessage<T> removeMessage(Recipient recipient , long messageId , T newMessage);
+    PubMessage<T> removeMessage(Recipient recipient , long messageId);
 
     void publishDisposableMessage(Recipient recipient , T message ,OperationResultListener<PubMessage<T>> result);
 

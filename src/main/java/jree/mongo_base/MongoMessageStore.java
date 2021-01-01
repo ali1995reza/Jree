@@ -262,6 +262,53 @@ public class MongoMessageStore {
 
     }
 
+    public <T> void removeMessage(Session remover , Recipient recipient ,
+                                  long messageId , BodySerializer<T> serializer, OperationResultListener<PubMessage<T>> callback)
+    {
+        String conversationId = StaticFunctions.uniqueConversationId(remover , recipient);
+        PubMessage.Type type = StaticFunctions.getType(recipient);
+
+        Bson filter = null;
+
+        if(type.is(PubMessage.Type.SESSION_TO_SESSION)){
+
+            filter = and(eq("conversation" , conversationId) ,
+                    eq("id" , messageId) ,
+                    eq("publisher.client" , remover.clientId()) ,
+                    eq("publisher.session" , remover.id()));
+
+        }else {
+
+
+            filter = and(eq("conversation" , conversationId) ,
+                    eq("id" , messageId) ,
+                    eq("publisher.client" , remover.clientId()));
+
+        }
+
+        messageCollection.findOneAndDelete(
+                filter, new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
+                        if(throwable!=null){
+
+                            callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+
+                        }else {
+
+                            if(document==null)
+                            {
+                                callback.onFailed(new FailReason(MongoFailReasonsCodes.MESSAGE_NOT_FOUND));
+                            }else {
+
+                                callback.onSuccess(parseMessage(serializer , document));
+
+                            }
+                        }
+                    }
+                }
+        );
+    }
 
     public void storeDisposableMessage(Session publisher , Recipient recipient ,
                              Object message , BodySerializer serializer , OperationResultListener<PubMessage> callback){
