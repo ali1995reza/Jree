@@ -15,6 +15,7 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T> {
     private final MongoMessageManager<T> messageManager;
     private final MongoSessionManager<T> sessionManager;
     private final ClientsHolder holder;
+    private final ConversationSubscribersHolder<T> subscribersHolder;
     private final AsyncMongoDatabase database;
     private final MongoClientDetailsStore detailsStore;
     private final MongoMessageStore messageStore;
@@ -31,6 +32,10 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T> {
         detailsStore = new MongoClientDetailsStore(database , messageStore);
         messageStore.setDetailsStore(detailsStore);
 
+
+        subscribersHolder = new ConversationSubscribersHolder<>();
+
+
         messageManager = new MongoMessageManager<>(
                 holder ,
                 detailsStore ,
@@ -42,6 +47,7 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T> {
                 messageStore ,
                 detailsStore ,
                 holder ,
+                subscribersHolder ,
                 serializer
         );
 

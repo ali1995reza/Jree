@@ -13,10 +13,12 @@ import jree.api.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.Binary;
+import org.bson.types.ObjectId;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.mongodb.client.model.Filters.*;
 import static com.mongodb.client.model.Updates.*;
@@ -40,6 +42,7 @@ public class MongoMessageStore {
     private final AsyncMongoCollection<Document> messageCounterCollection;
     private final AsyncMongoCollection<Document> messageCollection;
     private MongoClientDetailsStore detailsStore;
+    private final InsertBatch batch;
 
     public MongoMessageStore(AsyncMongoDatabase database) {
         this.database = database;
@@ -49,6 +52,8 @@ public class MongoMessageStore {
                 messageCollection  ,
                 Indexes.ascending("conversation" , "id" , "disposable")
         );
+
+        batch = new InsertBatch(messageCollection, 2000 , 100 , TimeUnit.MILLISECONDS);
     }
 
     void setDetailsStore(MongoClientDetailsStore detailsStore) {
@@ -69,7 +74,7 @@ public class MongoMessageStore {
         return document;
     }
 
-    private void getMessageId(String conversation , boolean upsert , SingleResultCallback<Long> idCallback)
+    private void getNewMessageId(String conversation , boolean upsert , SingleResultCallback<Long> idCallback)
     {
         Bson filter = eq("_id" , conversation);
         Bson update = inc("counter"  , 1l);
@@ -95,50 +100,25 @@ public class MongoMessageStore {
     }
 
 
-    public void getMessageIds(List<Subscribe> conversation , SingleResultCallback<List<MessageIndex>> callback)
+    public void getCurrentMessageId(String conversation , SingleResultCallback<Long> callback)
     {
 
         AsyncFindIterable<Document> iterable =
-                messageCounterCollection.find(in("_id" ,
-                        new ConverterList<Subscribe , String>(conversation, new ConverterList.Converter<Subscribe, String>() {
-                            @Override
-                            public String convert(Subscribe subscribe) {
-                                return String.valueOf(subscribe.conversation());
-                            }
-                        })));
-
-        final List<MessageIndex> indexes = new ArrayList<>();
-
-        iterable.forEach(new Block<Document>() {
+                messageCounterCollection.find(eq("_id" , conversation));
 
 
+
+        iterable.first(new SingleResultCallback<Document>() {
             @Override
-            public void apply(Document document) {
-
-                indexes.add(
-                        new MessageIndex(
-                                document.getString("_id") ,
-                                (Long) document.getOrDefault("counter" , 0l)
-                        )
-                );
-            }
-        }, new SingleResultCallback<Void>() {
-            @Override
-            public void onResult(Void aVoid, Throwable throwable) {
+            public void onResult(Document document, Throwable throwable) {
                 if(throwable!=null)
                 {
 
                     callback.onResult(null , throwable);
 
                 }else {
-
-                    if(indexes.size()==conversation.size())
-                    {
-
-                        callback.onResult(indexes , null);
-                    }else {
-                        callback.onResult(null , new IllegalStateException("not all conversation found"));
-                    }
+                    long currentId = (Long) document.getOrDefault("counter" , 0l);
+                    callback.onResult(currentId , null);
                 }
             }
         });
@@ -181,7 +161,7 @@ public class MongoMessageStore {
 
         boolean upsert = recipient.conversation()<0;
 
-        getMessageId(
+        getNewMessageId(
                 StaticFunctions.uniqueConversationId(publisher , recipient) , upsert , new SingleResultCallback<Long>() {
                     @Override
                     public void onResult(Long messageId, Throwable throwable) {
@@ -315,7 +295,7 @@ public class MongoMessageStore {
 
         boolean upsert = recipient.conversation()<0;
 
-        getMessageId(
+        getNewMessageId(
                 StaticFunctions.uniqueConversationId(publisher , recipient) , upsert , new SingleResultCallback<Long>() {
                     @Override
                     public void onResult(Long messageId, Throwable throwable) {
@@ -357,6 +337,7 @@ public class MongoMessageStore {
 
 
         Document messageDocument = new Document("id" , messageId);
+        messageDocument.append("_id" , new ObjectId());
         messageDocument.append(
                 "body" ,
                 serializer.serialize(message)
@@ -419,12 +400,11 @@ public class MongoMessageStore {
                     }
             );
         }else {
-
-            messageCollection.insertOne(
-                    messageDocument,
-                    new SingleResultCallback<InsertOneResult>() {
+            batch.putInsert(
+                    new InsertOneModel<>(messageDocument),
+                    new SingleResultCallback<Document>() {
                         @Override
-                        public void onResult(InsertOneResult insertOneResult, Throwable throwable) {
+                        public void onResult(Document document, Throwable throwable) {
                             if(throwable!=null)
                             {
                                 callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));

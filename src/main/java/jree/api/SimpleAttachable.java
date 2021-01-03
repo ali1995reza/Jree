@@ -1,6 +1,6 @@
 package jree.api;
 
-public class AttachableImpl implements Attachable {
+public class SimpleAttachable implements Attachable {
 
     private Object attachment;
 

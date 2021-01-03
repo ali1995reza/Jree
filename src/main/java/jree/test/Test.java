@@ -101,7 +101,7 @@ public class Test {
 
 
         @Override
-        public void onSuccess(Object result) {
+        public synchronized void onSuccess(Object result) {
             if(((++counter)%1000)==0)
             {
                 System.out.println(counter);
@@ -155,16 +155,19 @@ public class Test {
 
         Recipient recipient = RecipientImpl.conversationRecipient(3371223121818720070l);
 
+        session1_2.subscribe(
+                new Subscribe()
+                .setConversation(recipient.conversation())
+                .setOption(
+                        new SubscribeOption()
+                        .setLastMessages(20)
+                        .setJustThiSession(true)
+                )
+        );
 
-        long start = System.currentTimeMillis();
-        PubMessage<String> pubMessage =
-                session1_2.editMessage(recipient , 9995l , "Hello New wworrlldd");
-
-        long end = System.currentTimeMillis();
-        System.out.println(end-start);
-        System.out.println(pubMessage);
-
-        /*CounterOPListener c = new CounterOPListener(1000000);
+        System.out.println("DONE");
+        /*long start = System.currentTimeMillis();
+        CounterOPListener c = new CounterOPListener(1000000);
         for(int i=1;i<=1000000;i++)
         {
 
@@ -175,6 +178,8 @@ public class Test {
             );
         }
         c.await();
+
+        System.out.println("WINNER : "+(System.currentTimeMillis()-start));
          */
         Thread.sleep(1000000);
     }

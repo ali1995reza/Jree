@@ -5,7 +5,7 @@ import jree.api.*;
 import java.time.Instant;
 import java.util.List;
 
-public class PubMessageImpl<T> implements PubMessage<T> {
+public class PubMessageImpl<T> extends SimpleAttachable implements PubMessage<T> {
 
     private T body;
     private long id;

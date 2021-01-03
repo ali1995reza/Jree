@@ -6,7 +6,7 @@ import jree.util.Assertion;
 import java.time.Instant;
 import java.util.List;
 
-public interface PubMessage<T> {
+public interface PubMessage<T> extends Attachable {
 
     enum Type{
         SESSION_TO_SESSION(1), CLIENT_TO_CLIENT(2), CLIENT_TO_CONVERSATION(3);

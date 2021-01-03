@@ -1,10 +1,9 @@
 package jree.mongo_base;
 
 import com.mongodb.Block;
-import com.mongodb.client.model.FindOneAndUpdateOptions;
-import com.mongodb.client.model.Indexes;
-import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.*;
 import com.mongodb.client.result.InsertManyResult;
+import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
@@ -295,12 +294,6 @@ public class MongoClientDetailsStore {
     }
 
 
-    public void subscribe(Session session , String conversation , InsertTag tag ,
-                          SingleResultCallback<ConversationOffset> result)
-    {
-
-    }
-
     @Deprecated
     void storeMessageZeroOffset(PubMessage message)
     {
@@ -343,6 +336,7 @@ public class MongoClientDetailsStore {
 
     }
 
+
     void storeMessageZeroOffset(Session publisher ,
                                 Recipient recipient ,
                                 PubMessage.Type type ,
@@ -380,29 +374,32 @@ public class MongoClientDetailsStore {
         }
     }
 
+
+
+    private final static UpdateOptions WITH_UPSERT = new UpdateOptions()
+            .upsert(true);
+
+
     void storeMessageOffset(Session session ,
                             boolean justThisSession ,
-                            List<MessageIndex> indexes ,
-                            SingleResultCallback<InsertManyResult> callback){
+                            String conversation ,
+                            long messageIndex ,
+                            SingleResultCallback<UpdateResult> callback){
 
+        Bson filter = and(eq("client" , session.clientId()) ,
+                eq("conversation" , conversation));
 
-        List<Document> inserts = new ArrayList<>();
+        Bson update = setOnInsert("MAX" , messageIndex);
 
-        for(MessageIndex index:indexes)
+        if(justThisSession)
         {
-            Document d = new Document().append("client", session.clientId())
-                    .append("conversation", index.conversation())
-                    .append("MAX", index.maxMessageIndex());
-
-            if(justThisSession)
-            {
-                d.append("session" , session.id());
-            }
-
-            inserts.add(d);
+            update = combine(update , setOnInsert("session" , session.id()));
+        }else {
+            update = combine(update , unset("session"));
         }
 
-        clientOffsetStoreCollection.insertMany(inserts, callback);
+
+        clientOffsetStoreCollection.updateOne(filter , update , WITH_UPSERT , callback);
 
     }
 }

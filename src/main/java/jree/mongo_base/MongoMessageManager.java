@@ -140,7 +140,6 @@ public class MongoMessageManager<T> implements MessageManager<T> {
     private final ClientsHolder holder;
     private final MongoClientDetailsStore detailsStore;
     private final MongoMessageStore messageStore;
-    private final ConcurrentHashMap<Long , Set<MongoSession>> subscribers;
     private final BodySerializer<T> serializer;
 
     private final Function creator = new Function<Long, Set<Session>>() {
@@ -155,7 +154,6 @@ public class MongoMessageManager<T> implements MessageManager<T> {
         this.detailsStore = detailsStore;
         this.messageStore = messageStore;
         this.serializer = serializer;
-        subscribers = new ConcurrentHashMap<>();
     }
 
 

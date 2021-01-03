@@ -35,12 +35,12 @@ public interface Session<T> extends Attachable {
 
     boolean setMessageOffset(Recipient recipient, long offset);
 
-    void subscribe(List<Subscribe> subscribes, OperationResultListener<Boolean> result);
+    void subscribe(Subscribe subscribes, OperationResultListener<Boolean> result);
 
-    boolean subscribe(List<Subscribe> subscribes);
+    boolean subscribe(Subscribe subscribes);
 
-    void unsubscribe(List<Long> conversations, OperationResultListener<Boolean> result);
+    void unsubscribe(long conversations, OperationResultListener<Boolean> result);
 
-    boolean unsubscribe(List<Long> conversations);
+    boolean unsubscribe(long conversations);
 
 }

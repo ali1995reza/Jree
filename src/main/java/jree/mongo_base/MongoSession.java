@@ -1,6 +1,5 @@
 package jree.mongo_base;
 
-import com.mongodb.client.result.InsertManyResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import jree.api.*;
@@ -10,7 +9,7 @@ import java.util.List;
 
 import static jree.mongo_base.MongoFailReasonsCodes.RUNTIME_EXCEPTION;
 
-public class MongoSession<T> extends AttachableImpl implements Session<T>, SessionContext {
+public class MongoSession<T> extends SimpleAttachable implements Session<T>, SessionContext {
 
     private List<PubMessage> pubMessages = new ArrayList<>();
     private final long clientId;
@@ -19,17 +18,19 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
     private final MongoMessageStore messageStore;
     private final MongoClientDetailsStore detailsStore;
     private final ClientsHolder holder;
+    private final ConversationSubscribersHolder<T> subscribers;
     private final BodySerializer<T> serializer;
     private boolean closed;
 
 
-    public MongoSession(long clientId, long sessionId, SessionEventListener listener, MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder holder, BodySerializer<T> serializer) {
+    public MongoSession(long clientId, long sessionId, SessionEventListener listener, MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder holder, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer) {
         this.clientId = clientId;
         this.sessionId = sessionId;
         this.listener = listener;
         this.messageStore = messageStore;
         this.detailsStore = detailsStore;
         this.holder = holder;
+        this.subscribers = subscribers;
         this.serializer = serializer;
     }
 
@@ -60,12 +61,16 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
                 new OperationResultListener<PubMessage>() {
                     @Override
                     public void onSuccess(PubMessage message) {
-                        //detailsStore.storeMessageZeroOffset(message);
-                        SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
-                        if(sessionsHolder!=null) sessionsHolder.publishMessage(message);
-                        sessionsHolder = holder.getSessionsForClient(recipient.client());
-                        if(sessionsHolder!=null) sessionsHolder.publishMessage(message);
-                        callback.onSuccess(message);
+                        if(message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION))
+                        {
+                            subscribers.publishMessage(message);
+                        }else {
+                            SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
+                            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
+                            sessionsHolder = holder.getSessionsForClient(recipient.client());
+                            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
+                            callback.onSuccess(message);
+                        }
                     }
 
                     @Override
@@ -116,12 +121,16 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
                 new OperationResultListener<PubMessage>() {
                     @Override
                     public void onSuccess(PubMessage message) {
-                        //detailsStore.storeMessageZeroOffset(message);
-                        SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
-                        if(sessionsHolder!=null) sessionsHolder.publishMessage(message);
-                        sessionsHolder = holder.getSessionsForClient(recipient.client());
-                        if(sessionsHolder!=null) sessionsHolder.publishMessage(message);
-                        callback.onSuccess(message);
+                        if(message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION))
+                        {
+                            subscribers.publishMessage(message);
+                        }else {
+                            SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
+                            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
+                            sessionsHolder = holder.getSessionsForClient(recipient.client());
+                            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
+                            callback.onSuccess(message);
+                        }
                     }
 
                     @Override
@@ -195,55 +204,66 @@ public class MongoSession<T> extends AttachableImpl implements Session<T>, Sessi
     }
 
     @Override
-    public void subscribe(List<Subscribe> subscribes, OperationResultListener<Boolean> callback) {
+    public void subscribe(Subscribe subscribe, OperationResultListener<Boolean> callback) {
         assertIfClosed();
-        messageStore.getMessageIds(subscribes, new SingleResultCallback<List<MessageIndex>>() {
+
+
+        messageStore.getCurrentMessageId(String.valueOf(subscribe.conversation()), new SingleResultCallback<Long>() {
             @Override
-            public void onResult(List<MessageIndex> messageIndexes, Throwable throwable) {
+            public void onResult(Long aLong, Throwable throwable) {
                 if(throwable!=null)
                 {
                     callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
                 }else {
 
-                    for(MessageIndex index:messageIndexes)
-                    {
-                        index.decreaseMessageIndex(1);
-                    }
+                    aLong = Math.max(0 , aLong-subscribe.option().lastMessages());
 
-                    detailsStore.storeMessageOffset(MongoSession.this,
-                            false, messageIndexes,
-                            new SingleResultCallback<InsertManyResult>() {
+                    detailsStore.storeMessageOffset(
+                            MongoSession.this,
+                            subscribe.option().justThiSession(),
+                            String.valueOf(subscribe.conversation()),
+                            aLong,
+                            new SingleResultCallback<UpdateResult>() {
                                 @Override
-                                public void onResult(InsertManyResult insertManyResult, Throwable throwable) {
-
+                                public void onResult(UpdateResult updateResult, Throwable throwable) {
+                                    System.out.println(updateResult);
                                     if(throwable!=null)
                                     {
                                         callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
                                     }else {
-                                        callback.onSuccess(true);
+
+                                        if(updateResult.getMatchedCount()<1 && updateResult.getUpsertedId()==null)
+                                        {
+                                            callback.onFailed(new FailReason(RUNTIME_EXCEPTION));
+                                        }else {
+
+                                            callback.onSuccess(true);
+                                        }
                                     }
                                 }
-                            });
+                            }
+                    );
                 }
             }
         });
 
+
     }
 
     @Override
-    public boolean subscribe(List<Subscribe> subscribes) {
+    public boolean subscribe(Subscribe subscribes) {
         AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         subscribe(subscribes , asyncToSync);
         return asyncToSync.getResult();
     }
 
     @Override
-    public void unsubscribe(List<Long> conversations, OperationResultListener<Boolean> result) {
+    public void unsubscribe(long conversations, OperationResultListener<Boolean> result) {
 
     }
 
     @Override
-    public boolean unsubscribe(List<Long> conversations) {
+    public boolean unsubscribe(long conversations) {
         return false;
     }
 

@@ -43,12 +43,14 @@ public class MongoSessionManager<T> implements SessionManager<T> {
     private final MongoMessageStore messageStore;
     private final MongoClientDetailsStore detailsStore;
     private final ClientsHolder clients;
+    private final ConversationSubscribersHolder<T> subscribers;
     private final BodySerializer<T> serializer;
 
-    public MongoSessionManager(MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder clients, BodySerializer<T> serializer) {
+    public MongoSessionManager(MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder clients, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer) {
         this.messageStore = messageStore;
         this.detailsStore = detailsStore;
         this.clients = clients;
+        this.subscribers = subscribers;
         this.serializer = serializer;
     }
 
@@ -155,7 +157,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                             if(aBoolean)
                             {
                                 MongoSession session = new MongoSession(clientId ,
-                                        sessionId , eventListener, messageStore, detailsStore, clients, serializer);
+                                        sessionId , eventListener, messageStore, detailsStore, clients, subscribers, serializer);
 
                                 clients.addNewSession(session);
                                 detailsStore.getConversationOffsets(
@@ -170,7 +172,17 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                                                     return;
                                                 }
 
+                                                try{
+                                                    //todo add conversations !
+                                                }catch (Throwable e)
+                                                {
+                                                    clients.removeSession(session);
+                                                    callback.onFailed(new FailReason(e , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                                                    return;
+                                                }
+
                                                 callback.onSuccess(session);
+
                                                 messageStore.readStoredMessage(conversationOffsets, serializer
                                                         , new Block<PubMessage>() {
                                                             @Override
