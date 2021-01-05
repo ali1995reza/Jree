@@ -173,9 +173,10 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                                                 }
 
                                                 try{
-                                                    //todo add conversations !
+                                                    subscribers.addSubscriberByOffsets(conversationOffsets , session);
                                                 }catch (Throwable e)
                                                 {
+                                                    subscribers.removeSubscriber(session);
                                                     clients.removeSession(session);
                                                     callback.onFailed(new FailReason(e , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
                                                     return;

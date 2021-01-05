@@ -1,11 +1,13 @@
 package jree.mongo_base;
 
+import com.mongodb.Block;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import jree.api.*;
 import jree.util.Assertion;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static jree.mongo_base.MongoFailReasonsCodes.RUNTIME_EXCEPTION;
 
@@ -216,34 +218,35 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
                     callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
                 }else {
 
-                    aLong = Math.max(0 , aLong-subscribe.option().lastMessages());
+                    final long messageIndex =
+                            Math.max(0 , aLong-subscribe.option().lastMessages());
 
                     detailsStore.storeMessageOffset(
                             MongoSession.this,
                             subscribe.option().justThiSession(),
                             String.valueOf(subscribe.conversation()),
-                            aLong,
-                            new SingleResultCallback<UpdateResult>() {
-                                @Override
-                                public void onResult(UpdateResult updateResult, Throwable throwable) {
-                                    System.out.println(updateResult);
-                                    if(throwable!=null)
-                                    {
-                                        callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
-                                    }else {
+                            messageIndex,
+                            new AttachableConditionSingleResultCallback<UpdateResult,OperationResultListener<Boolean>>()
+                            .attach(callback)
+                            .ifSuccess(((updateResult, booleanOperationResultListener) -> {
+                                if(updateResult.getMatchedCount()<1 && updateResult.getUpsertedId()==null)
+                                {
+                                    callback.onFailed(new FailReason(RUNTIME_EXCEPTION));
+                                }else {
 
-                                        if(updateResult.getMatchedCount()<1 && updateResult.getUpsertedId()==null)
-                                        {
-                                            callback.onFailed(new FailReason(RUNTIME_EXCEPTION));
-                                        }else {
+                                    callback.onSuccess(true);
 
-                                            callback.onSuccess(true);
-                                        }
-                                    }
+                                    messageStore.readStoredMessage(new ConversationOffset(String.valueOf(subscribe.conversation()) , messageIndex), serializer
+                                            , MongoSession.this::onMessagePublished
+                                            , new ConditionSingleResultCallback<Void>()
+                                                    .ifFail(MongoSession.this::closeByException));
                                 }
-                            }
+                            }))
+                            .ifFail(FailCaller.RUNTIME_FAIL_CALLER)
                     );
                 }
+
+
             }
         });
 
@@ -308,6 +311,12 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
             pubMessages.clear();
             pubMessages = null;
         }
+    }
+
+    private void closeByException(Throwable t)
+    {
+        holder.removeSession(MongoSession.this);
+        eventListener().onClosedByException(t);
     }
 
     public SessionEventListener eventListener() {

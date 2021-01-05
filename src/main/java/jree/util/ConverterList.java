@@ -1,4 +1,4 @@
-package jree.mongo_base;
+package jree.util;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -8,10 +8,7 @@ import java.util.function.Consumer;
 
 public class ConverterList<F , T> implements List<T> {
 
-    public interface Converter<F , T>{
 
-        T convert(F f);
-    }
 
 
     private final static class ConverterIter<F , T> implements Iterator<T>{

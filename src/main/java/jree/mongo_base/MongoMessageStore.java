@@ -526,6 +526,17 @@ public class MongoMessageStore {
         return or(ors);
     }
 
+    private final static Bson offsetFilter(ConversationOffset offset)
+    {
+        if(offset==null)
+            return new Document();
+
+        Bson bson = and(eq("conversation" , offset.conversationId()) ,
+                gt("id" , offset.offset()) , eq("disposable" , false));
+
+        return bson;
+    }
+
     private final static Bson criteriaFilter(List<ReadMessageCriteria> criteria)
     {
         if(criteria==null || criteria.size()<1)
@@ -581,6 +592,23 @@ public class MongoMessageStore {
                 }
             }
         } , done);
+    }
+
+    public void readStoredMessage(ConversationOffset offset ,
+                                  BodySerializer serializer , Block<PubMessage> forEach , SingleResultCallback<Void> done)
+    {
+        messageCollection.find(offsetFilter(offset))
+                .forEach(new Block<Document>() {
+                    @Override
+                    public void apply(Document document) {
+                        try {
+                            forEach.apply(parseMessage(serializer , document));
+                        }catch (Exception e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                } , done);
     }
 
     public void readStoredMessageByCriteria(List<ReadMessageCriteria> criteria ,

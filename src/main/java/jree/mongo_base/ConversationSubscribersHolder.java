@@ -18,13 +18,30 @@ public class ConversationSubscribersHolder<T> {
 
 
     public synchronized ConversationSubscribersHolder<T> addSubscriber(
-            List<Long> conversations ,
+            Iterable<Long> conversations ,
             MongoSession<T> session
     )
     {
         for(Long l:conversations)
         {
             getOrCreate(l).add(session);
+        }
+
+        return this;
+    }
+
+    public synchronized ConversationSubscribersHolder<T> addSubscriberByOffsets(
+            Iterable<ConversationOffset> conversations ,
+            MongoSession<T> session
+    )
+    {
+        for(ConversationOffset offset:conversations)
+        {
+            if(offset.conversationId().contains("_"))
+                continue;
+
+
+            getOrCreate(Long.parseLong(offset.conversationId())).add(session);
         }
 
         return this;
