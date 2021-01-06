@@ -1,8 +1,6 @@
 package jree.api;
 
 
-import java.util.List;
-
 public interface Session<T> extends Attachable {
 
     long clientId();

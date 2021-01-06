@@ -48,9 +48,15 @@ public class Test {
         }
 
         @Override
-        public void onClosedByException(Throwable exception) {
-            exception.printStackTrace();
+        public void onClosedByException(SessionContext context, Throwable exception) {
+
         }
+
+        @Override
+        public void onCloseByCommand(SessionContext context) {
+
+        }
+
     }
 
     private final static class EMPTYLISTENER implements SessionEventListener{
@@ -71,9 +77,15 @@ public class Test {
         }
 
         @Override
-        public void onClosedByException(Throwable exception) {
+        public void onClosedByException(SessionContext context, Throwable exception) {
 
         }
+
+        @Override
+        public void onCloseByCommand(SessionContext context) {
+
+        }
+
     }
 
 

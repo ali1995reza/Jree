@@ -49,10 +49,24 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
 
     @Override
     public void close() {
-        assertIfClosed();
-        closed = true;
-        holder.removeSession(this);
-        //get out kid ;))
+        SessionsHolder holder = this.holder.getSessionsForClient(clientId());
+
+        //todo remove
+    }
+
+
+    private void onPublishedMessageStoredSuccessfully(PubMessage message , OperationResultListener<PubMessage> callback)
+    {
+        if(message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION))
+        {
+            subscribers.publishMessage(message);
+        }else {
+            SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
+            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
+            sessionsHolder = holder.getSessionsForClient(message.recipient().client());
+            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
+            callback.onSuccess(message);
+        }
     }
 
     @Override
@@ -60,26 +74,14 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
         assertIfClosed();
         messageStore.storeMessage(this,
                 recipient, message, serializer,
-                new OperationResultListener<PubMessage>() {
-                    @Override
-                    public void onSuccess(PubMessage message) {
-                        if(message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION))
-                        {
-                            subscribers.publishMessage(message);
-                        }else {
-                            SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
-                            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
-                            sessionsHolder = holder.getSessionsForClient(recipient.client());
-                            if (sessionsHolder != null) sessionsHolder.publishMessage(message);
-                            callback.onSuccess(message);
-                        }
-                    }
-
-                    @Override
-                    public void onFailed(FailReason reason) {
-                        callback.onFailed(reason);
-                    }
-                });
+                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage>>()
+        .ifSuccess(this::onPublishedMessageStoredSuccessfully)
+        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage>>() {
+            @Override
+            public void accept(FailReason failReason, OperationResultListener<PubMessage> pubMessageOperationResultListener) {
+                callback.onFailed(failReason);
+            }
+        }));
     }
 
     @Override
@@ -313,15 +315,30 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
         }
     }
 
-    private void closeByException(Throwable t)
+    void closeByException(Throwable t)
     {
-        holder.removeSession(MongoSession.this);
-        eventListener().onClosedByException(t);
+        holder.removeSession(this);
+        listener.onClosedByException(this , t);
     }
 
-    public SessionEventListener eventListener() {
-        return listener;
+    void closeByCommand()
+    {
+        holder.removeSession(this);
+        listener.onCloseByCommand(this);
     }
+
+    void preInitialized()
+    {
+        listener.preInitialize(this);
+    }
+
+    void onInitialized()
+    {
+        listener.onInitialized(this);
+    }
+
+
+
 
     @Override
     public Session currentSession() {

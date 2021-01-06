@@ -14,7 +14,6 @@ public interface SessionManager<T> {
     long createSession(long clientId);
     void connectToService(long clientId, long sessionId, SessionEventListener<T> eventListener, OperationResultListener<Session<T>> callback);
     Session<T> connectToService(long clientId, long sessionId, SessionEventListener<T> eventListener);
-    void disconnectFromService(Session<T> session, OperationResultListener<Boolean> callback);
     boolean disconnectFromService(Session<T> session);
     void checkPresence(List<Long> ids, OperationResultListener<List<Presence>> callback);
     void getSession(long clientId, long sessionId, OperationResultListener<Session<T>> callback);

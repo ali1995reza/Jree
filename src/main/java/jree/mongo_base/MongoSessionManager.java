@@ -99,18 +99,9 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public void createClientIfNotExists(long id, OperationResultListener<Boolean> callback) {
-        detailsStore.addClient(id, new SingleResultCallback<UpdateResult>() {
-            @Override
-            public void onResult(UpdateResult updateResult, Throwable throwable) {
-                if(throwable!=null)
-                {
-                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                }else
-                {
-                    callback.onSuccess(true);
-                }
-            }
-        });
+        detailsStore.addClient(id,new AttachableConditionSingleResultCallback<UpdateResult,OperationResultListener<Boolean>>()
+        .ifSuccess(IndependentSuccessCaller.call(callback , true))
+                .ifFail(FailCaller.RUNTIME_FAIL_CALLER));
     }
 
     @Override
@@ -122,18 +113,9 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
     @Override
     public void createSession(long clientId, OperationResultListener<Long> callback) {
-        detailsStore.addSessionToClient(clientId, new SingleResultCallback<Long>() {
-            @Override
-            public void onResult(Long aLong, Throwable throwable) {
-                if(throwable==null)
-                {
-                    callback.onSuccess(aLong);
-                }else
-                {
-                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                }
-            }
-        });
+        detailsStore.addSessionToClient(clientId,new AttachableConditionSingleResultCallback<Long, OperationResultListener<Long>>()
+        .ifSuccess(SuccessCaller.call(callback))
+        .ifFail(FailCaller.RUNTIME_FAIL_CALLER));
     }
 
     @Override
@@ -185,21 +167,13 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                                                 callback.onSuccess(session);
 
                                                 messageStore.readStoredMessage(conversationOffsets, serializer
-                                                        , new Block<PubMessage>() {
-                                                            @Override
-                                                            public void apply(PubMessage message) {
-                                                                session.beforeRelease(message);
-                                                            }
-                                                        }, new SingleResultCallback<Void>() {
+                                                        , session::beforeRelease , new SingleResultCallback<Void>() {
                                                             @Override
                                                             public void onResult(Void aVoid, Throwable throwable) {
 
                                                                 if(throwable!=null)
                                                                 {
-                                                                    clients.removeSession(session);
-                                                                    session.eventListener().onClosedByException(
-                                                                            throwable
-                                                                    );
+                                                                    session.closeByException(throwable);
                                                                 }else {
                                                                     session.release();
                                                                 }
@@ -229,20 +203,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
         return asyncToSync.getResult();
     }
 
-    @Override
-    public void disconnectFromService(Session<T> session , OperationResultListener<Boolean> callback) {
-        SessionsHolder holder = clients.getSessionsForClient(session.clientId());
-        if(holder==null)
-        {
-            callback.onFailed(new FailReason(MongoFailReasonsCodes.CLIENT_NOT_ACTIVE));
-        }
-        if(!holder.removeSession((MongoSession) session))
-        {
-            callback.onFailed(new FailReason(MongoFailReasonsCodes.SESSION_NOT_ACTIVE));
-        }
 
-        callback.onSuccess(true);
-    }
 
     @Override
     public boolean disconnectFromService(Session<T> session) {

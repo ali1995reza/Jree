@@ -47,9 +47,19 @@ public class ExceptionAdaptedEventListener<T> implements SessionEventListener<T>
     }
 
     @Override
-    public void onClosedByException(Throwable exception) {
+    public void onClosedByException(SessionContext context ,Throwable exception) {
         try{
-            wrapped.onClosedByException(exception);
+            wrapped.onClosedByException(context , exception);
+        }catch (Throwable e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onCloseByCommand(SessionContext context) {
+        try{
+            wrapped.onCloseByCommand(context);
         }catch (Throwable e)
         {
             e.printStackTrace();
