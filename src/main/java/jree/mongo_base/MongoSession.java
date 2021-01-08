@@ -5,8 +5,13 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import jree.api.*;
 import jree.util.Assertion;
+import jree.util.concurrentiter.IterNode;
+import org.bson.types.ObjectId;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import static jree.mongo_base.MongoFailReasonsCodes.RUNTIME_EXCEPTION;
@@ -23,6 +28,8 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     private final ConversationSubscribersHolder<T> subscribers;
     private final BodySerializer<T> serializer;
     private boolean closed;
+    private Object _sync = new Object();
+    private Map<Long , IterNode> subscriptions = new HashMap();
 
 
     public MongoSession(long clientId, long sessionId, SessionEventListener listener, MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder holder, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer) {
@@ -49,9 +56,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
 
     @Override
     public void close() {
-        SessionsHolder holder = this.holder.getSessionsForClient(clientId());
-
-        //todo remove
+        closeByCommand();
     }
 
 
@@ -236,6 +241,9 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
                                     callback.onFailed(new FailReason(RUNTIME_EXCEPTION));
                                 }else {
 
+                                    subscribers.addSubscriber(subscribe.conversation() ,
+                                            MongoSession.this);
+
                                     callback.onSuccess(true);
 
                                     messageStore.readStoredMessage(new ConversationOffset(String.valueOf(subscribe.conversation()) , messageIndex), serializer
@@ -253,6 +261,11 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
         });
 
 
+    }
+
+    void addSubscriptions(long id , IterNode node)
+    {
+        subscriptions.put(id , node);
     }
 
     @Override
@@ -317,14 +330,32 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
 
     void closeByException(Throwable t)
     {
-        holder.removeSession(this);
-        listener.onClosedByException(this , t);
+        synchronized (_sync) {
+            if(closed)return;
+            closed = true;
+            holder.removeSession(this);
+            removeSubscriptions();
+            listener.onClosedByException(this, t);
+        }
     }
 
-    void closeByCommand()
+    private void closeByCommand()
     {
-        holder.removeSession(this);
-        listener.onCloseByCommand(this);
+        synchronized (_sync) {
+            if(closed)return;
+            closed = true;
+            holder.removeSession(this);
+            removeSubscriptions();
+            listener.onCloseByCommand(this);
+        }
+    }
+
+    private final void removeSubscriptions()
+    {
+        for(IterNode subscribe:subscriptions.values())
+        {
+            subscribe.remove();
+        }
     }
 
     void preInitialized()

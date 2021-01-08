@@ -140,8 +140,9 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                             {
                                 MongoSession session = new MongoSession(clientId ,
                                         sessionId , eventListener, messageStore, detailsStore, clients, subscribers, serializer);
-
+                                session.preInitialized();
                                 clients.addNewSession(session);
+                                session.onInitialized();
                                 detailsStore.getConversationOffsets(
                                         session,
                                         new SingleResultCallback<List<ConversationOffset>>() {
@@ -158,7 +159,6 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                                                     subscribers.addSubscriberByOffsets(conversationOffsets , session);
                                                 }catch (Throwable e)
                                                 {
-                                                    subscribers.removeSubscriber(session);
                                                     clients.removeSession(session);
                                                     callback.onFailed(new FailReason(e , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
                                                     return;
