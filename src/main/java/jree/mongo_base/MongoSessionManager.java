@@ -156,7 +156,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
                                                 }
 
                                                 try{
-                                                    subscribers.addSubscriberByOffsets(conversationOffsets , session);
+                                                    subscribers.addSubscriberByOffsets(conversationOffsets , session , OperationResultListener.EMPTY_LISTENER);
                                                 }catch (Throwable e)
                                                 {
                                                     clients.removeSession(session);

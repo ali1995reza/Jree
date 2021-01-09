@@ -33,7 +33,7 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T> {
         messageStore.setDetailsStore(detailsStore);
 
 
-        subscribersHolder = new ConversationSubscribersHolder<>();
+        subscribersHolder = new ConversationSubscribersHolder<>(holder ,"jdbc:h2:E:\\h2db\\db");
 
 
         messageManager = new MongoMessageManager<>(

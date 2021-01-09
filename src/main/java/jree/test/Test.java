@@ -162,7 +162,7 @@ public class Test {
         .connectToService(1 , 1 , new MyEventListener("SESSION 1-1"));*/
 
         Session<String> session1_2 = mongoPubSubSystem.sessionManager()
-                .connectToService(1 , 2 , new EMPTYLISTENER());
+                .connectToService(1 , 2 , new MyEventListener("S!@"));
 
 
         Recipient recipient = RecipientImpl.conversationRecipient(3371223121818720070l);
@@ -176,6 +176,13 @@ public class Test {
                         .setJustThiSession(true)
                 )
         );
+
+        Thread.sleep(5000);
+
+        System.out.println("HERE ");
+        PubMessage message = session1_2.publishMessage(recipient ,
+                "Hello world");
+        System.out.println("NEW MESSAGE : "+message);
 
         System.out.println("DONE");
         /*long start = System.currentTimeMillis();

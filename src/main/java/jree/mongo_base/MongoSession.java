@@ -29,7 +29,6 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     private final BodySerializer<T> serializer;
     private boolean closed;
     private Object _sync = new Object();
-    private Map<Long , IterNode> subscriptions = new HashMap();
 
 
     public MongoSession(long clientId, long sessionId, SessionEventListener listener, MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder holder, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer) {
@@ -60,11 +59,12 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     }
 
 
-    private void onPublishedMessageStoredSuccessfully(PubMessage message , OperationResultListener<PubMessage> callback)
+    private void onPublishedMessageStoredSuccessfully(PubMessage message , OperationResultListener<PubMessage<T>> callback)
     {
         if(message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION))
         {
             subscribers.publishMessage(message);
+            callback.onSuccess(message);
         }else {
             SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
             if (sessionsHolder != null) sessionsHolder.publishMessage(message);
@@ -79,11 +79,12 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
         assertIfClosed();
         messageStore.storeMessage(this,
                 recipient, message, serializer,
-                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage>>()
+                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage<T>>>()
+                        .attach(callback)
         .ifSuccess(this::onPublishedMessageStoredSuccessfully)
-        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage>>() {
+        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage<T>>>() {
             @Override
-            public void accept(FailReason failReason, OperationResultListener<PubMessage> pubMessageOperationResultListener) {
+            public void accept(FailReason failReason, OperationResultListener<PubMessage<T>> pubMessageOperationResultListener) {
                 callback.onFailed(failReason);
             }
         }));
@@ -242,7 +243,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
                                 }else {
 
                                     subscribers.addSubscriber(subscribe.conversation() ,
-                                            MongoSession.this);
+                                            MongoSession.this , OperationResultListener.EMPTY_LISTENER);
 
                                     callback.onSuccess(true);
 
@@ -263,10 +264,6 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
 
     }
 
-    void addSubscriptions(long id , IterNode node)
-    {
-        subscriptions.put(id , node);
-    }
 
     @Override
     public boolean subscribe(Subscribe subscribes) {
@@ -352,10 +349,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
 
     private final void removeSubscriptions()
     {
-        for(IterNode subscribe:subscriptions.values())
-        {
-            subscribe.remove();
-        }
+        subscribers.remove(this , OperationResultListener.EMPTY_LISTENER);
     }
 
     void preInitialized()

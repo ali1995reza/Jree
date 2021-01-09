@@ -1,14 +1,17 @@
 package jree.test;
 
-import jree.api.Subscribe;
+import jree.api.FailReason;
+import jree.api.OperationResultListener;
+import jree.mongo_base.H2ConnectionPool;
 import jree.util.concurrentiter.ConcurrentIter;
-import org.h2.jdbcx.JdbcDataSource;
-import org.h2.mvstore.MVMap;
-import org.h2.mvstore.MVStore;
+import org.checkerframework.checker.units.qual.A;
+import org.checkerframework.checker.units.qual.C;
 
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public class TestMongoDB  {
@@ -33,52 +36,77 @@ public class TestMongoDB  {
         }
     }
 
+
+    private final static class StatementResult implements OperationResultListener<Statement>{
+
+        private final CountDownLatch latch;
+        private AtomicInteger integer = new AtomicInteger(0);
+
+        private StatementResult(int count) {
+            this.latch = new CountDownLatch(count);
+        }
+
+        @Override
+        public void onSuccess(Statement result) {
+            try {
+                ResultSet resultSet = result.getResultSet();
+                int count = 0;
+                while (resultSet.next())
+                {
+                    resultSet.getInt(1);
+                    ++count;
+                }
+                latch.countDown();
+                int now = integer.incrementAndGet();
+                if(now%1000000==0)
+                {
+                    System.out.println(now);
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onFailed(FailReason reason) {
+            reason.printStackTrace();
+            latch.countDown();
+        }
+    }
+
+
     public static void main(String[] args) throws Exception
     {
 
 
+        StringBuilder builder = new StringBuilder();
+        builder.append("12");
+        builder.codePointAt(0);
+        builder.append("3");
+        System.out.println(builder.toString());
 
+        System.exit(1);
 
+        H2ConnectionPool pool = new H2ConnectionPool(10 , "jdbc:h2:E:\\h2db\\db");
 
-
-
-        JdbcDataSource dataSource = new JdbcDataSource();
-
-        dataSource.setURL("jdbc:h2:E:\\h2db\\db");
-        Connection connection = dataSource.getConnection();
-
-        Statement statement = connection.createStatement();
+        StatementResult result = new StatementResult(1000000);
 
 
         runAndTick(new Runnable() {
             @Override
             public void run() {
-                for(int i=0;i<10000000;i++)
+                for(int i=0;i<1000000;i++)
                 {
-                    try {
-                        statement.execute("SELECT value FROM SUBS WHERE value = 2");
+                    pool.execute("SELECT value FROM SUBS WHERE value = 1" , result);
+                }
 
-                        ResultSet set = statement.getResultSet();
-
-                        int c = 0;
-                        while (set.next()) {
-                            ++c;
-                            //System.out.println(set.getInt("value"));
-                        }
-                        System.out.println(c);
-                        //System.out.println(c);
-
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
-
-                    if(i%5==0)
-                    {
-                        System.out.println(i);
-                    }
+                try {
+                    result.latch.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
             }
-        } , "WHOLE QUERY TIME");
+        } , "EXEC_ASYNC");
 
 
 
