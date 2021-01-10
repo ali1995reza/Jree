@@ -13,4 +13,6 @@ public class MongoFailReasonsCodes {
     public final static int CONVERSATION_NOT_EXISTS = 9;
     public final static int CONVERSATION_ALREADY_EXISTS = 10;
     public final static int MESSAGE_NOT_FOUND = 11;
+    public final static int ALREADY_SUBSCRIBER = 12;
+    public final static int RECIPIENT_DOSE_NOT_EXISTS = 13;
 }

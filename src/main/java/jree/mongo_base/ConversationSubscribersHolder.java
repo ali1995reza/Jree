@@ -185,7 +185,7 @@ public class ConversationSubscribersHolder<T> {
             OperationResultListener<Boolean> callback
     )
     {
-        String sql = "INSERT INTO "+tableName+"(C , CL , S) VALUES"+commaSplitStringFromOffsets(conversations , session);
+        String sql = "INSERT INTO "+tableName+" VALUES"+commaSplitStringFromOffsets(conversations , session);
 
         doAdd(sql , callback);
         return this;
@@ -208,6 +208,8 @@ public class ConversationSubscribersHolder<T> {
                     {
                         long client = set.getLong(1);
                         long session = set.getLong(2);
+                        System.out.println("CLI : "+client);
+                        System.out.println("SESS :"+session);
                         SessionsHolder sessionsHolder =
                                 clients.getSessionsForClient(client);
                         if(sessionsHolder==null)

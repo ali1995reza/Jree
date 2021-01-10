@@ -167,17 +167,22 @@ public class Test {
 
         Recipient recipient = RecipientImpl.conversationRecipient(3371223121818720070l);
 
-        session1_2.subscribe(
-                new Subscribe()
-                .setConversation(recipient.conversation())
-                .setOption(
-                        new SubscribeOption()
-                        .setLastMessages(20)
-                        .setJustThiSession(true)
-                )
-        );
+        try {
+            session1_2.subscribe(
+                    new Subscribe()
+                            .setConversation(recipient.conversation())
+                            .setOption(
+                                    new SubscribeOption()
+                                            .setLastMessages(20)
+                                            .setJustThiSession(true)
+                            )
+            );
+        }catch (Throwable e)
+        {
+            e.printStackTrace();
+        }
 
-        Thread.sleep(5000);
+        Thread.sleep(1000);
 
         System.out.println("HERE ");
         PubMessage message = session1_2.publishMessage(recipient ,

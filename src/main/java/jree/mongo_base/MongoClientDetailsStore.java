@@ -271,6 +271,25 @@ public class MongoClientDetailsStore {
         });
     }
 
+    public void isClientExists(long client ,
+                               SingleResultCallback<Boolean> callback)
+    {
+        clientsDetailsStoreCollection
+                .find(eq("client" , client))
+                .first(new SingleResultCallback<Document>() {
+            @Override
+            public void onResult(Document document, Throwable throwable) {
+                if(throwable!=null)
+                {
+                    callback.onResult(null , throwable);
+                }else
+                {
+                    callback.onResult(document!=null , null);
+                }
+            }
+        });
+    }
+
     public void getConversationOffsets(Session session , SingleResultCallback<List<ConversationOffset>> callback)
     {
         OffsetFetcher offsetFetcher = new OffsetFetcher(session, callback);

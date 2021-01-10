@@ -74,7 +74,7 @@ public class MongoMessageStore {
         return document;
     }
 
-    private void getNewMessageId(String conversation , boolean upsert , SingleResultCallback<Long> idCallback)
+    private void getNewMessageIdForConversation(String conversation , boolean upsert , SingleResultCallback<Long> idCallback)
     {
         Bson filter = eq("_id" , conversation);
         Bson update = inc("counter"  , 1l);
@@ -98,6 +98,7 @@ public class MongoMessageStore {
             }
         });
     }
+
 
 
     public void getCurrentMessageId(String conversation , SingleResultCallback<Long> callback)
@@ -156,12 +157,13 @@ public class MongoMessageStore {
     }
 
 
+
     public void storeMessage(Session publisher , Recipient recipient ,
                              Object message , BodySerializer serializer , OperationResultListener<PubMessage> callback){
 
         boolean upsert = recipient.conversation()<0;
 
-        getNewMessageId(
+        getNewMessageIdForConversation(
                 StaticFunctions.uniqueConversationId(publisher , recipient) , upsert , new SingleResultCallback<Long>() {
                     @Override
                     public void onResult(Long messageId, Throwable throwable) {
@@ -295,7 +297,7 @@ public class MongoMessageStore {
 
         boolean upsert = recipient.conversation()<0;
 
-        getNewMessageId(
+        getNewMessageIdForConversation(
                 StaticFunctions.uniqueConversationId(publisher , recipient) , upsert , new SingleResultCallback<Long>() {
                     @Override
                     public void onResult(Long messageId, Throwable throwable) {

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import static jree.mongo_base.MongoFailReasonsCodes.ALREADY_SUBSCRIBER;
 import static jree.mongo_base.MongoFailReasonsCodes.RUNTIME_EXCEPTION;
 
 public class MongoSession<T> extends SimpleAttachable implements Session<T>, SessionContext {
@@ -240,6 +241,8 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
                                 if(updateResult.getMatchedCount()<1 && updateResult.getUpsertedId()==null)
                                 {
                                     callback.onFailed(new FailReason(RUNTIME_EXCEPTION));
+                                }else if(updateResult.getMatchedCount()==1 && updateResult.getModifiedCount()==0){
+                                    callback.onFailed(new FailReason(ALREADY_SUBSCRIBER));
                                 }else {
 
                                     subscribers.addSubscriber(subscribe.conversation() ,
