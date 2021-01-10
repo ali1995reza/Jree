@@ -58,7 +58,7 @@ public class ConversationSubscribersHolder<T> {
             OperationResultListener<Boolean> callback
     )
     {
-        String sql = "INSERT INTO "+tableName+"(C , CL , S) VALUES"+commaSplitString(conversations , session);
+        String sql = "INSERT INTO "+tableName+"VALUES"+commaSplitString(conversations , session);
 
         doAdd(sql , callback);
 
@@ -110,22 +110,30 @@ public class ConversationSubscribersHolder<T> {
     private static String commaSplitString(Iterable<Long> iterable , MongoSession session)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append("(");
         Iterator<Long> iter = iterable.iterator();
-        int counter = 0;
         if(iter.hasNext())
         {
-            builder.append(iter.next());
-            ++counter;
+            builder.append("(")
+                    .append(iter.next())
+                    .append(",")
+                    .append(session.clientId())
+                    .append(",")
+                    .append(session.id())
+                    .append(")");
         }
 
         while (iter.hasNext())
         {
-            builder.append(",").append(iter.next());
-            ++counter;
+            builder.append(",").append("(")
+                    .append(iter.next())
+                    .append(",")
+                    .append(session.clientId())
+                    .append(",")
+                    .append(session.id())
+                    .append(")");
         }
 
-        return builder.toString()+" , "+createSessionMultiple(counter , session);
+        return builder.toString();
     }
 
     private static String commaSplitStringFromOffsets(
@@ -134,16 +142,19 @@ public class ConversationSubscribersHolder<T> {
     )
     {
         StringBuilder builder = new StringBuilder();
-        builder.append("(");
         Iterator<ConversationOffset> iter = iterable.iterator();
-        int count = 0;
         while (iter.hasNext())
         {
             ConversationOffset offset = iter.next();
             if(offset.conversationId().contains("_"))
                 continue;
-            builder.append(offset.conversationId());
-            ++count;
+            builder.append("(")
+                .append(offset.conversationId())
+                .append(",")
+                .append(session.clientId())
+                .append(",")
+                .append(session.id())
+                .append(")");
             break;
         }
 
@@ -153,32 +164,19 @@ public class ConversationSubscribersHolder<T> {
             if(offset.conversationId().contains("_"))
                 continue;
 
-            builder.append(",").append(offset.conversationId());
-            ++count;
+            builder.append(",").append("(")
+                    .append(offset.conversationId())
+                    .append(",")
+                    .append(session.clientId())
+                    .append(",")
+                    .append(session.id())
+                    .append(")");
         }
-
-        return builder.toString()+" , "+createSessionMultiple(count , session);
-    }
-
-    private final static String createSessionMultiple(int size , Session session)
-    {
-        StringBuilder builder = new StringBuilder();
-        builder.append("(");
-        for(int i=0;i<size-1;i++)
-        {
-            builder.append(session.clientId()).append(",");
-        }
-        builder.append(session.clientId()).append(") , ");
-
-        builder.append("(");
-        for(int i=0;i<size-1;i++)
-        {
-            builder.append(session.id()).append(",");
-        }
-        builder.append(session.id()).append(") , ");
 
         return builder.toString();
     }
+
+
 
 
     public ConversationSubscribersHolder<T> addSubscriberByOffsets(
