@@ -1,6 +1,8 @@
 package jree.test;
 
 import com.mongodb.Block;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.internal.async.SingleResultCallback;
@@ -66,10 +68,7 @@ public class JDBCTest {
         AsyncMongoClient client = AsyncMongoClients.create();
         AsyncMongoDatabase database = client.getDatabase("Test");
         AsyncMongoCollection<Document> collection = database.getCollection("TEST");
-
-        ObjectId id = new ObjectId(new byte[]{1 ,1});
-
-        System.out.println(id);
+        MongoClientSettings settings;
 
         System.exit(1);
 

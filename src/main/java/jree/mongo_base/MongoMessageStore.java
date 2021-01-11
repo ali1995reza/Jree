@@ -9,11 +9,13 @@ import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncFindIterable;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import jree.api.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
+import sun.plugin2.message.Conversation;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -100,7 +102,6 @@ public class MongoMessageStore {
     }
 
 
-
     public void getCurrentMessageId(String conversation , SingleResultCallback<Long> callback)
     {
 
@@ -163,34 +164,113 @@ public class MongoMessageStore {
 
         boolean upsert = recipient.conversation()<0;
 
-        getNewMessageIdForConversation(
-                StaticFunctions.uniqueConversationId(publisher , recipient) , upsert , new SingleResultCallback<Long>() {
-                    @Override
-                    public void onResult(Long messageId, Throwable throwable) {
-                        if(throwable!=null)
-                        {
-                            callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                        }else
-                        {
-                            if(messageId==-1)
-                            {
-                                callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
-                            }else {
-                                doStoreMessage(
-                                        publisher,
-                                        recipient,
-                                        messageId,
-                                        message,
-                                        false ,
-                                        serializer,
-                                        callback
+        if(upsert) {
+            getNewMessageIdForConversation(
+                    StaticFunctions.uniqueConversationId(publisher, recipient), upsert, new SingleResultCallback<Long>() {
+                        @Override
+                        public void onResult(Long messageId, Throwable throwable) {
+                            if (throwable != null) {
+                                callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                            } else {
+                                if (messageId == -1) {
+                                    callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
+                                } else {
+                                    doStoreMessage(
+                                            publisher,
+                                            recipient,
+                                            messageId,
+                                            message,
+                                            false,
+                                            serializer,
+                                            callback
 
-                                );
+                                    );
+                                }
                             }
                         }
                     }
-                }
-        );
+            );
+        }else {
+
+
+            if(recipient.session()<0)
+            {
+                detailsStore.isClientExists(recipient.client(),
+                        new SingleResultCallback<Boolean>() {
+                            @Override
+                            public void onResult(Boolean aBoolean, Throwable throwable) {
+                                if(throwable!=null)
+                                {
+                                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                                }else {
+                                    getNewMessageIdForConversation(
+                                            StaticFunctions.uniqueConversationId(publisher, recipient), upsert, new SingleResultCallback<Long>() {
+                                                @Override
+                                                public void onResult(Long messageId, Throwable throwable) {
+                                                    if (throwable != null) {
+                                                        callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                                                    } else {
+                                                        if (messageId == -1) {
+                                                            callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
+                                                        } else {
+                                                            doStoreMessage(
+                                                                    publisher,
+                                                                    recipient,
+                                                                    messageId,
+                                                                    message,
+                                                                    false,
+                                                                    serializer,
+                                                                    callback
+
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                    );
+                                }
+                            }
+                        });
+            }else {
+                detailsStore.isSessionExists(recipient.client() , recipient.session() ,
+                        new SingleResultCallback<Boolean>() {
+                            @Override
+                            public void onResult(Boolean aBoolean, Throwable throwable) {
+                                if(throwable!=null)
+                                {
+                                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+
+                                }else {
+                                    getNewMessageIdForConversation(
+                                            StaticFunctions.uniqueConversationId(publisher, recipient), upsert, new SingleResultCallback<Long>() {
+                                                @Override
+                                                public void onResult(Long messageId, Throwable throwable) {
+                                                    if (throwable != null) {
+                                                        callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                                                    } else {
+                                                        if (messageId == -1) {
+                                                            callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
+                                                        } else {
+                                                            doStoreMessage(
+                                                                    publisher,
+                                                                    recipient,
+                                                                    messageId,
+                                                                    message,
+                                                                    false,
+                                                                    serializer,
+                                                                    callback
+
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                    );
+                                }
+                            }
+                        });
+            }
+        }
     }
 
     public <T> void updateMessage(Session editor , Recipient recipient ,
