@@ -6,7 +6,7 @@ import jree.api.*;
 
 import java.util.List;
 
-public class MongoSessionManager<T> implements SessionManager<T> {
+public class MongoSessionManager<T> implements SessionManager<T , String> {
 
     private final class RandomClientIdGenerator implements SingleResultCallback<UpdateResult>{
 
@@ -125,8 +125,8 @@ public class MongoSessionManager<T> implements SessionManager<T> {
     }
 
     @Override
-    public void connectToService(long clientId, long sessionId , SessionEventListener<T> ev , OperationResultListener<Session<T>> callback) {
-        final ExceptionAdaptedEventListener<T>
+    public void connectToService(long clientId, long sessionId , SessionEventListener<T , String> ev , OperationResultListener<Session<T , String>> callback) {
+        final ExceptionAdaptedEventListener<T , String>
                 eventListener = new ExceptionAdaptedEventListener<>(ev);
         detailsStore.isSessionExists(
                 clientId, sessionId,
@@ -196,8 +196,8 @@ public class MongoSessionManager<T> implements SessionManager<T> {
     }
 
     @Override
-    public Session<T> connectToService(long clientId, long sessionId, SessionEventListener<T> eventListener) {
-        AsyncToSync<Session<T>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+    public Session<T , String> connectToService(long clientId, long sessionId, SessionEventListener<T , String> eventListener) {
+        AsyncToSync<Session<T , String>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         connectToService(clientId, sessionId, eventListener , asyncToSync);
         return asyncToSync.getResult();
     }
@@ -205,7 +205,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
 
 
     @Override
-    public boolean disconnectFromService(Session<T> session) {
+    public boolean disconnectFromService(Session<T , String> session) {
         return false;
     }
 
@@ -215,7 +215,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
     }
 
     @Override
-    public void getSession(long clientId, long sessionId, OperationResultListener<Session<T>> callback) {
+    public void getSession(long clientId, long sessionId, OperationResultListener<Session<T , String>> callback) {
         SessionsHolder holder = clients.getSessionsForClient(clientId);
         if(holder==null)
             callback.onFailed(new FailReason(MongoFailReasonsCodes.SESSION_NOT_ACTIVE));
@@ -229,7 +229,7 @@ public class MongoSessionManager<T> implements SessionManager<T> {
     }
 
     @Override
-    public Session<T> getSession(long clientId, long sessionId) {
+    public Session<T ,String> getSession(long clientId, long sessionId) {
 
         SessionsHolder holder = clients.getSessionsForClient(clientId);
         if(holder==null)

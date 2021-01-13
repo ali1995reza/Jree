@@ -17,7 +17,7 @@ import java.util.function.BiConsumer;
 import static jree.mongo_base.MongoFailReasonsCodes.ALREADY_SUBSCRIBER;
 import static jree.mongo_base.MongoFailReasonsCodes.RUNTIME_EXCEPTION;
 
-public class MongoSession<T> extends SimpleAttachable implements Session<T>, SessionContext {
+public class MongoSession<T> extends SimpleAttachable implements Session<T , String>, SessionContext {
 
     private List<PubMessage> pubMessages = new ArrayList<>();
     private final long clientId;
@@ -60,7 +60,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     }
 
 
-    private void onPublishedMessageStoredSuccessfully(PubMessage message , OperationResultListener<PubMessage<T>> callback)
+    private void onPublishedMessageStoredSuccessfully(PubMessage message , OperationResultListener<PubMessage<T , String>> callback)
     {
         if(message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION))
         {
@@ -76,48 +76,48 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     }
 
     @Override
-    public void publishMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T>> callback) {
+    public void publishMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T , String>> callback) {
         assertIfClosed();
         messageStore.storeMessage(this,
                 recipient, message, serializer,
-                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage<T>>>()
+                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage<T , String>>>()
                         .attach(callback)
         .ifSuccess(this::onPublishedMessageStoredSuccessfully)
-        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage<T>>>() {
+        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage<T , String>>>() {
             @Override
-            public void accept(FailReason failReason, OperationResultListener<PubMessage<T>> pubMessageOperationResultListener) {
+            public void accept(FailReason failReason, OperationResultListener<PubMessage<T , String>> pubMessageOperationResultListener) {
                 callback.onFailed(failReason);
             }
         }));
     }
 
     @Override
-    public PubMessage<T> publishMessage(Recipient recipient, T message) {
-        AsyncToSync<PubMessage<T>> syncToAsync = SharedAsyncToSync.shared().get().refresh();
+    public PubMessage<T , String> publishMessage(Recipient recipient, T message) {
+        AsyncToSync<PubMessage<T , String>> syncToAsync = SharedAsyncToSync.shared().get().refresh();
         publishMessage(recipient, message , syncToAsync);
         return syncToAsync.getResult();
     }
 
     @Override
-    public void editMessage(Recipient recipient, long messageId, T newMessage, OperationResultListener<PubMessage<T>> result) {
+    public void editMessage(Recipient recipient, String messageId, T newMessage, OperationResultListener<PubMessage<T , String>> result) {
         messageStore.updateMessage(this , recipient , messageId , newMessage , serializer, result);
     }
 
     @Override
-    public PubMessage<T> editMessage(Recipient recipient, long messageId, T newMessage) {
-        AsyncToSync<PubMessage<T>> syncToAsync = SharedAsyncToSync.shared().get().refresh();
+    public PubMessage<T , String> editMessage(Recipient recipient, String messageId, T newMessage) {
+        AsyncToSync<PubMessage<T , String>> syncToAsync = SharedAsyncToSync.shared().get().refresh();
         editMessage(recipient, messageId, newMessage , syncToAsync);
         return syncToAsync.getResult();
     }
 
     @Override
-    public void removeMessage(Recipient recipient, long messageId, OperationResultListener<PubMessage<T>> result) {
+    public void removeMessage(Recipient recipient, String messageId, OperationResultListener<PubMessage<T , String>> result) {
         messageStore.removeMessage(this , recipient , messageId , serializer , result);
     }
 
     @Override
-    public PubMessage<T> removeMessage(Recipient recipient, long messageId) {
-        AsyncToSync<PubMessage<T>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+    public PubMessage<T , String> removeMessage(Recipient recipient, String messageId) {
+        AsyncToSync<PubMessage<T , String>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         messageStore.removeMessage(this , recipient , messageId , serializer , asyncToSync);
 
         return asyncToSync.getResult();
@@ -125,7 +125,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     }
 
     @Override
-    public void publishDisposableMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T>> callback) {
+    public void publishDisposableMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T , String>> callback) {
         assertIfClosed();
         messageStore.storeDisposableMessage(this,
                 recipient, message, serializer,
@@ -152,8 +152,8 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T>, Ses
     }
 
     @Override
-    public PubMessage<T> publishDisposableMessage(Recipient recipient, T message) {
-        AsyncToSync<PubMessage<T>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+    public PubMessage<T , String> publishDisposableMessage(Recipient recipient, T message) {
+        AsyncToSync<PubMessage<T , String>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         publishDisposableMessage(recipient , message , asyncToSync);
         return asyncToSync.getResult();
     }

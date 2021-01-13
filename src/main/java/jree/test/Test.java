@@ -23,7 +23,7 @@ public class Test {
         }
     };
 
-    private final static class MyEventListener implements SessionEventListener<String>
+    private final static class MyEventListener implements SessionEventListener<String , String>
     {
 
         private final String TAG;
@@ -33,7 +33,7 @@ public class Test {
         }
 
         @Override
-        public void onMessagePublished(SessionContext context, PubMessage<String> message) {
+        public void onMessagePublished(SessionContext context, PubMessage<String , String> message) {
             System.out.println(TAG+ " ON MSG : "+message);
         }
 
@@ -161,7 +161,7 @@ public class Test {
         /*Session<String> session1_1 = mongoPubSubSystem.sessionManager()
         .connectToService(1 , 1 , new MyEventListener("SESSION 1-1"));*/
 
-        Session<String> session1_2 = mongoPubSubSystem.sessionManager()
+        Session<String , String> session1_2 = mongoPubSubSystem.sessionManager()
                 .connectToService(1 , 2 , new MyEventListener("S!@"));
 
 

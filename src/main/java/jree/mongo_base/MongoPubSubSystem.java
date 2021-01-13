@@ -9,7 +9,7 @@ import jree.api.PubSubSystem;
 import jree.api.SessionManager;
 import jree.util.Assertion;
 
-public class MongoPubSubSystem<T> implements PubSubSystem<T> {
+public class MongoPubSubSystem<T> implements PubSubSystem<T , String> {
 
     private final SerializerReference<T> serializer;
     private final MongoMessageManager<T> messageManager;
@@ -61,7 +61,7 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T> {
     }
 
     @Override
-    public MessageManager<T> messageManager() {
+    public MessageManager<T , String> messageManager() {
         return messageManager;
     }
 

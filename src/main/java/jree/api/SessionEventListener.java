@@ -1,9 +1,9 @@
 package jree.api;
 
-public interface SessionEventListener<T> {
+public interface SessionEventListener<T ,ID> {
 
     void onMessagePublished(SessionContext context,
-                            PubMessage<T> message);
+                            PubMessage<T , ID> message);
     void preInitialize(SessionContext context);
     void onInitialized(SessionContext context);
     void onClosedByException(SessionContext context , Throwable exception);

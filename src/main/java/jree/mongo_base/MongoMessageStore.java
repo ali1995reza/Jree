@@ -9,13 +9,10 @@ import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncFindIterable;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import jree.api.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.Binary;
-import org.bson.types.ObjectId;
-import sun.plugin2.message.Conversation;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -45,6 +42,7 @@ public class MongoMessageStore {
     private final AsyncMongoCollection<Document> messageCollection;
     private MongoClientDetailsStore detailsStore;
     private final InsertBatch batch;
+    private final IDBuilder idBuilder = new IDBuilder(1, System::currentTimeMillis);
 
     public MongoMessageStore(AsyncMongoDatabase database) {
         this.database = database;
@@ -178,7 +176,6 @@ public class MongoMessageStore {
                                     doStoreMessage(
                                             publisher,
                                             recipient,
-                                            messageId,
                                             message,
                                             false,
                                             serializer,
@@ -216,7 +213,6 @@ public class MongoMessageStore {
                                                             doStoreMessage(
                                                                     publisher,
                                                                     recipient,
-                                                                    messageId,
                                                                     message,
                                                                     false,
                                                                     serializer,
@@ -254,7 +250,6 @@ public class MongoMessageStore {
                                                             doStoreMessage(
                                                                     publisher,
                                                                     recipient,
-                                                                    messageId,
                                                                     message,
                                                                     false,
                                                                     serializer,
@@ -274,7 +269,7 @@ public class MongoMessageStore {
     }
 
     public <T> void updateMessage(Session editor , Recipient recipient ,
-                              long messageId , T message , BodySerializer<T> serializer , OperationResultListener<PubMessage<T>> callback){
+                              String messageId , T message , BodySerializer<T> serializer , OperationResultListener<PubMessage<T , String>> callback){
 
         Bson update = set("body" , serializer.serialize(message));
         String conversationId = StaticFunctions.uniqueConversationId(editor , recipient);
@@ -325,7 +320,7 @@ public class MongoMessageStore {
     }
 
     public <T> void removeMessage(Session remover , Recipient recipient ,
-                                  long messageId , BodySerializer<T> serializer, OperationResultListener<PubMessage<T>> callback)
+                                  String messageId , BodySerializer<T> serializer, OperationResultListener<PubMessage<T , String>> callback)
     {
         String conversationId = StaticFunctions.uniqueConversationId(remover , recipient);
         PubMessage.Type type = StaticFunctions.getType(recipient);
@@ -393,7 +388,6 @@ public class MongoMessageStore {
                                 doStoreMessage(
                                         publisher,
                                         recipient,
-                                        messageId,
                                         message,
                                         true ,
                                         serializer,
@@ -410,16 +404,15 @@ public class MongoMessageStore {
 
 
 
-    public void doStoreMessage(Session publisher , Recipient recipient  , long messageId ,
+    public void doStoreMessage(Session publisher , Recipient recipient ,
                                Object message , boolean disposable , BodySerializer serializer , OperationResultListener<PubMessage> callback)
     {
         Instant time = Instant.now();
         PubMessage.Type type = StaticFunctions.getType(recipient);
 
+        String messageId = idBuilder.newId();
 
-
-        Document messageDocument = new Document("id" , messageId);
-        messageDocument.append("_id" , new ObjectId());
+        Document messageDocument = new Document("_id" , messageId);
         messageDocument.append(
                 "body" ,
                 serializer.serialize(message)
@@ -442,7 +435,7 @@ public class MongoMessageStore {
                         .append("session" , publisher.id())
         ).append("conversation" , StaticFunctions.uniqueConversationId(publisher ,recipient));
 
-        if(messageId == 1 && type.isNot(PubMessage.Type.CLIENT_TO_CONVERSATION))
+        if(/*messageId == 1 &&*/ type.isNot(PubMessage.Type.CLIENT_TO_CONVERSATION))
         {
             detailsStore.storeMessageZeroOffset(
                     publisher, recipient, type,
@@ -517,7 +510,7 @@ public class MongoMessageStore {
 
 
         return new PubMessageImpl(
-                document.getLong("id") ,
+                document.getString("_id") ,
                 serializer.deserialize(((Binary) document.get("body")).getData()),
                 document.getDate("publishedTime").toInstant() ,
                 PubMessage.Type.findByCode(document.getInteger("type")) ,

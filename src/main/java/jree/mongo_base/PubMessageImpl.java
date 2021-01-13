@@ -5,16 +5,16 @@ import jree.api.*;
 import java.time.Instant;
 import java.util.List;
 
-public class PubMessageImpl<T> extends SimpleAttachable implements PubMessage<T> {
+public class PubMessageImpl<T> extends SimpleAttachable implements PubMessage<T , String> {
 
     private T body;
-    private long id;
+    private String id;
     private Instant time;
     private PubMessage.Type type;
     private Publisher publisher;
     private Recipient recipient;
 
-    public PubMessageImpl(long id, T body, Instant time, Type type, Session session, Recipient recipient) {
+    public PubMessageImpl(String id, T body, Instant time, Type type, Session session, Recipient recipient) {
         this.body = body;
         this.id = id;
         this.time = time;
@@ -24,7 +24,7 @@ public class PubMessageImpl<T> extends SimpleAttachable implements PubMessage<T>
     }
 
 
-    public PubMessageImpl(long id, T body, Instant time, Type type, long clientId, long sessionId, Recipient recipient) {
+    public PubMessageImpl(String id, T body, Instant time, Type type, long clientId, long sessionId, Recipient recipient) {
         this.body = body;
         this.id = id;
         this.time = time;
@@ -37,7 +37,7 @@ public class PubMessageImpl<T> extends SimpleAttachable implements PubMessage<T>
 
 
     @Override
-    public long id() {
+    public String id() {
         return id;
     }
 

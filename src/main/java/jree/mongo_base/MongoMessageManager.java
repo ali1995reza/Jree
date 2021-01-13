@@ -14,10 +14,10 @@ import java.util.function.Function;
 
 import static jree.mongo_base.MongoFailReasonsCodes.RUNTIME_EXCEPTION;
 
-public class MongoMessageManager<T> implements MessageManager<T> {
+public class MongoMessageManager<T> implements MessageManager<T , String> {
 
-    private final static class MessageIterable<T> implements Iterable<PubMessage<T>> ,
-            Iterator<PubMessage<T>> ,
+    private final static class MessageIterable<T> implements Iterable<PubMessage<T , String>> ,
+            Iterator<PubMessage<T , String>> ,
             Block<PubMessage> ,
             SingleResultCallback<Void> {
 
@@ -28,7 +28,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
         private boolean done = false;
 
         @Override
-        public Iterator<PubMessage<T>> iterator() {
+        public Iterator<PubMessage<T , String>> iterator() {
             synchronized (_sync) {
                 Assertion.ifTrue("this iterable used", consumed);
                 consumed = true;
@@ -56,12 +56,12 @@ public class MongoMessageManager<T> implements MessageManager<T> {
         }
 
         @Override
-        public PubMessage<T> next() {
+        public PubMessage<T , String> next() {
             try {
                 Object o = blockingQueue.take();
                 if(o instanceof PubMessage)
                 {
-                    return (PubMessage<T>) o;
+                    return (PubMessage<T , String>) o;
                 }else
                 {
 
@@ -183,7 +183,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
     }
 
     @Override
-    public void readMessages(List<ReadMessageCriteria> criteria, Consumer<PubMessage<T>> forEach) {
+    public void readMessages(List<ReadMessageCriteria> criteria, Consumer<PubMessage<T,String>> forEach) {
         messageStore.readStoredMessageByCriteria(
                 criteria,
                 serializer,
@@ -193,7 +193,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
     }
 
     @Override
-    public Iterable<PubMessage<T>> readMessages(List<ReadMessageCriteria> criteria) {
+    public Iterable<PubMessage<T , String>> readMessages(List<ReadMessageCriteria> criteria) {
         MessageIterable<T> messageIterable = new MessageIterable<>();
         messageStore.readStoredMessageByCriteria(
                 criteria ,
@@ -206,7 +206,7 @@ public class MongoMessageManager<T> implements MessageManager<T> {
     }
 
     @Override
-    public Iterable<PubMessage<T>> readMessages(ReadMessageCriteria... criteria) {
+    public Iterable<PubMessage<T , String>> readMessages(ReadMessageCriteria... criteria) {
         return readMessages(Arrays.asList(criteria));
     }
 }

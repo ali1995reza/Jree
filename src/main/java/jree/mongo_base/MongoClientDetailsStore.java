@@ -316,7 +316,7 @@ public class MongoClientDetailsStore {
     @Deprecated
     void storeMessageZeroOffset(PubMessage message)
     {
-        if (message.id() == 1 && message.type().isNot(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
+        if (true && message.type().isNot(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
 
             String conversation = StaticFunctions.relatedConversation(message);
             List<Document> list = null;

@@ -5,19 +5,19 @@ import jree.api.SessionContext;
 import jree.util.Assertion;
 import jree.api.SessionEventListener;
 
-public class ExceptionAdaptedEventListener<T> implements SessionEventListener<T> {
+public class ExceptionAdaptedEventListener<T , ID> implements SessionEventListener<T , ID> {
 
 
-    private final SessionEventListener<T> wrapped;
+    private final SessionEventListener<T , ID> wrapped;
 
-    public ExceptionAdaptedEventListener(SessionEventListener<T> wrapped) {
+    public ExceptionAdaptedEventListener(SessionEventListener<T , ID> wrapped) {
         Assertion.ifNull("listener is null" , wrapped);
         this.wrapped = wrapped;
     }
 
 
     @Override
-    public void onMessagePublished(SessionContext context, PubMessage<T> message) {
+    public void onMessagePublished(SessionContext context, PubMessage<T , ID> message) {
         try{
             wrapped.onMessagePublished(context, message);
         }catch (Throwable e)

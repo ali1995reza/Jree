@@ -2,7 +2,7 @@ package jree.api;
 
 import java.util.List;
 
-public interface SessionManager<T> {
+public interface SessionManager<T ,ID> {
 
     void createClient(long id, OperationResultListener<Boolean> callback);
     boolean createClient(long id);
@@ -12,11 +12,11 @@ public interface SessionManager<T> {
     boolean createClientIfNotExists(long id);
     void createSession(long clientId, OperationResultListener<Long> callback);
     long createSession(long clientId);
-    void connectToService(long clientId, long sessionId, SessionEventListener<T> eventListener, OperationResultListener<Session<T>> callback);
-    Session<T> connectToService(long clientId, long sessionId, SessionEventListener<T> eventListener);
-    boolean disconnectFromService(Session<T> session);
+    void connectToService(long clientId, long sessionId, SessionEventListener<T , ID> eventListener, OperationResultListener<Session<T , ID>> callback);
+    Session<T , ID> connectToService(long clientId, long sessionId, SessionEventListener<T , ID> eventListener);
+    boolean disconnectFromService(Session<T , ID> session);
     void checkPresence(List<Long> ids, OperationResultListener<List<Presence>> callback);
-    void getSession(long clientId, long sessionId, OperationResultListener<Session<T>> callback);
-    Session<T> getSession(long clientId, long sessionId);
+    void getSession(long clientId, long sessionId, OperationResultListener<Session<T , ID>> callback);
+    Session<T , ID> getSession(long clientId, long sessionId);
 
 }

@@ -193,7 +193,7 @@ public class ConversationSubscribersHolder<T> {
 
 
     public ConversationSubscribersHolder<T> publishMessage(
-            PubMessage<T> pubMessage
+            PubMessage<T , String> pubMessage
     ){
         Assertion.ifTrue("recipient not a conversation" , pubMessage.recipient().conversation()<0);
 
@@ -256,7 +256,7 @@ public class ConversationSubscribersHolder<T> {
     }
 
 
-    private final void publishMessageToSubscribers(MongoSession<T> session , PubMessage<T> message)
+    private final void publishMessageToSubscribers(MongoSession<T> session , PubMessage<T , String> message)
     {
         session.onMessagePublished(message);
     }

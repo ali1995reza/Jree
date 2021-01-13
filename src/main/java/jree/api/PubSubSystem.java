@@ -1,9 +1,9 @@
 package jree.api;
 
-public interface PubSubSystem<T> {
+public interface PubSubSystem<T , ID> {
 
     void setBodySerializer(BodySerializer<T> serializer);
-    MessageManager<T> messageManager();
-    SessionManager<T> sessionManager();
+    MessageManager<T , ID> messageManager();
+    SessionManager<T , ID> sessionManager();
 
 }

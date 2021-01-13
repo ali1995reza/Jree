@@ -1,7 +1,7 @@
 package jree.api;
 
 
-public interface Session<T> extends Attachable {
+public interface Session<T , ID> extends Attachable {
 
     long clientId();
 
@@ -9,21 +9,21 @@ public interface Session<T> extends Attachable {
 
     void close();
 
-    void publishMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T>> result);
+    void publishMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T ,ID>> result);
 
-    PubMessage<T> publishMessage(Recipient recipient, T message);
+    PubMessage<T , ID> publishMessage(Recipient recipient, T message);
 
-    void editMessage(Recipient recipient , long messageId , T newMessage , OperationResultListener<PubMessage<T>> result);
+    void editMessage(Recipient recipient , ID messageId , T newMessage , OperationResultListener<PubMessage<T , ID>> result);
 
-    PubMessage<T> editMessage(Recipient recipient , long messageId , T newMessage);
+    PubMessage<T , ID> editMessage(Recipient recipient , ID messageId , T newMessage);
 
-    void removeMessage(Recipient recipient , long messageId , OperationResultListener<PubMessage<T>> result);
+    void removeMessage(Recipient recipient , ID messageId , OperationResultListener<PubMessage<T , ID>> result);
 
-    PubMessage<T> removeMessage(Recipient recipient , long messageId);
+    PubMessage<T , ID> removeMessage(Recipient recipient , ID messageId);
 
-    void publishDisposableMessage(Recipient recipient , T message ,OperationResultListener<PubMessage<T>> result);
+    void publishDisposableMessage(Recipient recipient , T message ,OperationResultListener<PubMessage<T , ID>> result);
 
-    PubMessage<T> publishDisposableMessage(Recipient recipient , T message);
+    PubMessage<T , ID> publishDisposableMessage(Recipient recipient , T message);
 
     void addTag(Recipient recipient, InsertTag tag, OperationResultListener<InsertTagResult> result);
 
