@@ -14,13 +14,13 @@ public class Tested {
     static int identify = 100;
     static ByteBuffer buffer = ByteBuffer.allocate(12);
 
-    private final static class Synchronizer<T> implements SingleResultCallback<T>
+    public final static class Synchronizer<T> implements SingleResultCallback<T>
     {
         private Throwable throwable;
         private T t;
         private CountDownLatch latch;
 
-        private Synchronizer<T> refresh()
+        public Synchronizer<T> refresh()
         {
             throwable = null;
             t = null;

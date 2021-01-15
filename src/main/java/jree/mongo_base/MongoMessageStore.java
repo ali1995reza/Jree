@@ -34,20 +34,20 @@ public class MongoMessageStore {
             new UpdateOptions().upsert(true);
 
 
-    private final static String MESSAGE_COUNTER_COLLECTION_NAME = "MSG_COUNTER";
+    private final static String CONVERSATION_COLLECTION_NAME = "MSG_COUNTER";
     private final static String MESSAGE_COLLECTION_NAME = "MSG";
 
     private final AsyncMongoDatabase database;
-    private final AsyncMongoCollection<Document> messageCounterCollection;
     private final AsyncMongoCollection<Document> messageCollection;
+    private final AsyncMongoCollection<Document> conversationCollection;
     private MongoClientDetailsStore detailsStore;
     private final InsertBatch batch;
     private final IDBuilder idBuilder = new IDBuilder(1, System::currentTimeMillis);
 
     public MongoMessageStore(AsyncMongoDatabase database) {
         this.database = database;
-        messageCounterCollection = this.database.getCollection(MESSAGE_COUNTER_COLLECTION_NAME);
         messageCollection = this.database.getCollection(MESSAGE_COLLECTION_NAME);
+        conversationCollection = this.database.getCollection(CONVERSATION_COLLECTION_NAME);
         DBStaticFunctions.createIndex(
                 messageCollection  ,
                 Indexes.ascending("conversation" , "id" , "disposable")
@@ -74,61 +74,11 @@ public class MongoMessageStore {
         return document;
     }
 
-    private void getNewMessageIdForConversation(String conversation , boolean upsert , SingleResultCallback<Long> idCallback)
-    {
-        Bson filter = eq("_id" , conversation);
-        Bson update = inc("counter"  , 1l);
-
-        messageCounterCollection.findOneAndUpdate(filter, update,
-                upsert?FIND_ONE_OPTIONS_WITH_UPSERT:FIND_ONE_OPTIONS_WITHOUT_UPSERT
-                , new SingleResultCallback<Document>() {
-            @Override
-            public void onResult(Document document, Throwable throwable) {
-                if (throwable != null) {
-                    idCallback.onResult(null, throwable);
-                } else {
-                    if (document == null) {
-                        idCallback.onResult(upsert?1l:-1l, null);
-                    } else {
-                        long counter = (long) document.getOrDefault("counter", 0l);
-                        ++counter;
-                        idCallback.onResult(counter, null);
-                    }
-                }
-            }
-        });
-    }
-
-
-    public void getCurrentMessageId(String conversation , SingleResultCallback<Long> callback)
-    {
-
-        AsyncFindIterable<Document> iterable =
-                messageCounterCollection.find(eq("_id" , conversation));
-
-
-
-        iterable.first(new SingleResultCallback<Document>() {
-            @Override
-            public void onResult(Document document, Throwable throwable) {
-                if(throwable!=null)
-                {
-
-                    callback.onResult(null , throwable);
-
-                }else {
-                    long currentId = (Long) document.getOrDefault("counter" , 0l);
-                    callback.onResult(currentId , null);
-                }
-            }
-        });
-    }
-
     public void createNewConversationIndex(final long conversation , OperationResultListener<Long> callback)
     {
-        messageCounterCollection.updateOne(
-                eq("_id", String.valueOf(conversation)),
-                max("counter", 0l),
+        conversationCollection.updateOne(
+                eq("_id",conversation),
+                setOnInsert("dump" , true) ,
                 UPDATE_OPTIONS_WITH_UPSERT,
                 new SingleResultCallback<UpdateResult>() {
                     @Override
@@ -156,116 +106,37 @@ public class MongoMessageStore {
     }
 
 
+    public void isConversationExists(long conversation , SingleResultCallback<Boolean> callback){
+
+        conversationCollection
+                .find(eq("_id" , conversation))
+                .first(new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
+                        if(throwable!=null)
+                        {
+                            callback.onResult(null , throwable);
+                        }else
+                        {
+                            callback.onResult(document!=null , null);
+                        }
+                    }
+                });
+    }
+
 
     public void storeMessage(Session publisher , Recipient recipient ,
                              Object message , BodySerializer serializer , OperationResultListener<PubMessage> callback){
 
-        boolean upsert = recipient.conversation()<0;
+        doStoreMessage(
+                publisher,
+                recipient,
+                message,
+                false,
+                serializer,
+                callback
 
-        if(upsert) {
-            getNewMessageIdForConversation(
-                    StaticFunctions.uniqueConversationId(publisher, recipient), upsert, new SingleResultCallback<Long>() {
-                        @Override
-                        public void onResult(Long messageId, Throwable throwable) {
-                            if (throwable != null) {
-                                callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                            } else {
-                                if (messageId == -1) {
-                                    callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
-                                } else {
-                                    doStoreMessage(
-                                            publisher,
-                                            recipient,
-                                            message,
-                                            false,
-                                            serializer,
-                                            callback
-
-                                    );
-                                }
-                            }
-                        }
-                    }
-            );
-        }else {
-
-
-            if(recipient.session()<0)
-            {
-                detailsStore.isClientExists(recipient.client(),
-                        new SingleResultCallback<Boolean>() {
-                            @Override
-                            public void onResult(Boolean aBoolean, Throwable throwable) {
-                                if(throwable!=null)
-                                {
-                                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                                }else {
-                                    getNewMessageIdForConversation(
-                                            StaticFunctions.uniqueConversationId(publisher, recipient), upsert, new SingleResultCallback<Long>() {
-                                                @Override
-                                                public void onResult(Long messageId, Throwable throwable) {
-                                                    if (throwable != null) {
-                                                        callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                                                    } else {
-                                                        if (messageId == -1) {
-                                                            callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
-                                                        } else {
-                                                            doStoreMessage(
-                                                                    publisher,
-                                                                    recipient,
-                                                                    message,
-                                                                    false,
-                                                                    serializer,
-                                                                    callback
-
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                    );
-                                }
-                            }
-                        });
-            }else {
-                detailsStore.isSessionExists(recipient.client() , recipient.session() ,
-                        new SingleResultCallback<Boolean>() {
-                            @Override
-                            public void onResult(Boolean aBoolean, Throwable throwable) {
-                                if(throwable!=null)
-                                {
-                                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-
-                                }else {
-                                    getNewMessageIdForConversation(
-                                            StaticFunctions.uniqueConversationId(publisher, recipient), upsert, new SingleResultCallback<Long>() {
-                                                @Override
-                                                public void onResult(Long messageId, Throwable throwable) {
-                                                    if (throwable != null) {
-                                                        callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                                                    } else {
-                                                        if (messageId == -1) {
-                                                            callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
-                                                        } else {
-                                                            doStoreMessage(
-                                                                    publisher,
-                                                                    recipient,
-                                                                    message,
-                                                                    false,
-                                                                    serializer,
-                                                                    callback
-
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                    );
-                                }
-                            }
-                        });
-            }
-        }
+        );
     }
 
     public <T> void updateMessage(Session editor , Recipient recipient ,
@@ -370,34 +241,15 @@ public class MongoMessageStore {
     public void storeDisposableMessage(Session publisher , Recipient recipient ,
                              Object message , BodySerializer serializer , OperationResultListener<PubMessage> callback){
 
-        boolean upsert = recipient.conversation()<0;
 
-        getNewMessageIdForConversation(
-                StaticFunctions.uniqueConversationId(publisher , recipient) , upsert , new SingleResultCallback<Long>() {
-                    @Override
-                    public void onResult(Long messageId, Throwable throwable) {
-                        if(throwable!=null)
-                        {
-                            callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                        }else
-                        {
-                            if(messageId==-1)
-                            {
-                                callback.onFailed(new FailReason(MongoFailReasonsCodes.CONVERSATION_NOT_EXISTS));
-                            }else {
-                                doStoreMessage(
-                                        publisher,
-                                        recipient,
-                                        message,
-                                        true ,
-                                        serializer,
-                                        callback
+        doStoreMessage(
+                publisher,
+                recipient,
+                message,
+                true ,
+                serializer,
+                callback
 
-                                );
-                            }
-                        }
-                    }
-                }
         );
     }
 

@@ -219,7 +219,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T , Str
         assertIfClosed();
 
 
-        messageStore.getCurrentMessageId(String.valueOf(subscribe.conversation()), new SingleResultCallback<Long>() {
+        /*messageStore.getCurrentMessageId(String.valueOf(subscribe.conversation()), new SingleResultCallback<Long>() {
             @Override
             public void onResult(Long aLong, Throwable throwable) {
                 if(throwable!=null)
@@ -262,7 +262,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T , Str
 
 
             }
-        });
+        });*/
 
 
     }

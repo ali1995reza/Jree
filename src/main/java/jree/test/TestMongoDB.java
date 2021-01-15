@@ -18,7 +18,7 @@ public class TestMongoDB  {
 
 
 
-    private final static void runAndTick(Runnable runnable, String name)
+    public final static void runAndTick(Runnable runnable, String name)
     {
         long start = System.currentTimeMillis();
         runnable.run();
