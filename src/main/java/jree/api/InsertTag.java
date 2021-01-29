@@ -6,8 +6,19 @@ public final class InsertTag {
     private long idIndex;
     private boolean attachToMessages;
 
+    public InsertTag attachToMessages() {
+        this.attachToMessages = true;
+        return this;
+    }
+
     public InsertTag setAttachToMessages(boolean attachToMessages) {
         this.attachToMessages = attachToMessages;
+        return this;
+    }
+
+    public InsertTag dontAttachToMessage()
+    {
+        this.attachToMessages = false;
         return this;
     }
 
