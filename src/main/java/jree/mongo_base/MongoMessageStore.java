@@ -17,6 +17,8 @@ import org.bson.types.Binary;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.mongodb.client.model.Filters.*;
@@ -53,7 +55,7 @@ public class MongoMessageStore {
                 Indexes.ascending("conversation" , "id" , "disposable")
         );
 
-        batch = new InsertBatch(messageCollection, 2000 , 100 , TimeUnit.MILLISECONDS);
+        batch = new InsertBatch(messageCollection , Executors.newScheduledThreadPool(1), 2000 , 100);
     }
 
     void setDetailsStore(MongoClientDetailsStore detailsStore) {
@@ -327,7 +329,7 @@ public class MongoMessageStore {
                     }
             );
         }else {
-            batch.putInsert(
+            batch.putInBatch(
                     new InsertOneModel<>(messageDocument),
                     new SingleResultCallback<Document>() {
                         @Override
