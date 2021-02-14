@@ -29,9 +29,9 @@ public interface Session<T , ID> extends Attachable {
 
     InsertTagResult addTag(Recipient recipient, InsertTag tag);
 
-    void setMessageOffset(Recipient recipient, long offset, OperationResultListener<Boolean> callback);
+    void setMessageOffset(ID offset, OperationResultListener<Boolean> callback);
 
-    boolean setMessageOffset(Recipient recipient, long offset);
+    boolean setMessageOffset(ID offset);
 
     void subscribe(Subscribe subscribes, OperationResultListener<Boolean> result);
 

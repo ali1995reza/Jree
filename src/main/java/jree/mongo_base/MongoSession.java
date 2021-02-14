@@ -187,30 +187,19 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T , Str
     }
 
     @Override
-    public void setMessageOffset(Recipient recipient, long offset, OperationResultListener<Boolean> callback) {
+    public void setMessageOffset(String offset, OperationResultListener<Boolean> callback) {
         assertIfClosed();
         detailsStore.setMessageOffset(
                 this,
-                recipient,
                 offset,
-                new SingleResultCallback<UpdateResult>() {
-                    @Override
-                    public void onResult(UpdateResult updateResult, Throwable throwable) {
-                        if(throwable!=null)
-                        {
-                            callback.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
-                        }else {
-                            callback.onSuccess(true);
-                        }
-                    }
-                }
+                callback
         );
     }
 
     @Override
-    public boolean setMessageOffset(Recipient recipient, long offset) {
+    public boolean setMessageOffset(String offset) {
         AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
-        setMessageOffset(recipient, offset , asyncToSync);
+        setMessageOffset(offset , asyncToSync);
         return asyncToSync.getResult();
     }
 

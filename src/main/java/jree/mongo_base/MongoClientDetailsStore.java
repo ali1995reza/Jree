@@ -8,6 +8,7 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import jree.api.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import static com.mongodb.client.model.Filters.*;
 import static com.mongodb.client.model.Projections.include;
@@ -120,7 +122,6 @@ public class MongoClientDetailsStore {
                        SingleResultCallback<InsertTagResult> callback)
     {
 
-
         final FindOneAndUpdateOptions deliveryOption = new FindOneAndUpdateOptions()
                 .upsert(true)
                 .projection(include(insertTag.name()));
@@ -131,64 +132,7 @@ public class MongoClientDetailsStore {
         clientOffsetStoreCollection.findOneAndUpdate(
                 and(eq("client", session.clientId()) ,
                         eq("conversation" , conversation)),
-                max(insertTag.name() , insertTag.idIndex()) ,
                 deliveryOption,
-                new SingleResultCallback<Document>() {
-                    @Override
-                    public void onResult(Document document, Throwable throwable) {
-                        try {
-
-                            if (throwable != null) {
-                                callback.onResult(null, throwable);
-                            } else {
-                                long oldCount = document == null ?
-                                        0 :
-                                        (long) document.getOrDefault(insertTag.name(), 0l);
-
-                                final Tag tag = new TagImpl(
-                                        insertTag.name() ,
-                                        Instant.now() ,
-                                        session.clientId()
-                                );
-
-                                if(insertTag.wantAttachToMessages())
-                                {
-
-                                    messageStore.setTagOnMessages(
-                                            session ,
-                                            recipient ,
-                                            tag,
-                                            oldCount,
-                                            insertTag.idIndex(),
-                                            new SingleResultCallback<UpdateResult>() {
-                                                @Override
-                                                public void onResult(UpdateResult updateResult, Throwable throwable) {
-
-                                                    if(throwable!=null)
-                                                    {
-                                                        callback.onResult(null , throwable);
-                                                    }else
-                                                    {
-                                                        callback.onResult(new InsertTagResultImpl(
-                                                                updateResult.getModifiedCount() , tag
-                                                        ) , null);
-                                                    }
-                                                }
-                                            }
-                                    );
-                                }else
-                                {
-                                    callback.onResult(new InsertTagResultImpl(
-                                            0 , tag
-                                    ) , null);
-                                }
-                            }
-                        }catch (Exception e)
-                        {
-                            e.printStackTrace();
-                        }
-                    }
-                }
         );
     }
 
@@ -301,14 +245,22 @@ public class MongoClientDetailsStore {
                 "MAX" , "conversation")).forEach(offsetFetcher , offsetFetcher);
     }
 
-    public void setMessageOffset(Session session , Recipient recipient , long offset , SingleResultCallback<UpdateResult> callback)
+    public void setMessageOffset(Session session , String offset , OperationResultListener<Boolean> callback)
     {
         clientOffsetStoreCollection.updateOne(
                 and(eq("client" , session.clientId()),
-                        eq("conversation" , StaticFunctions.uniqueConversationId(session, recipient))) ,
-                combine(max(String.valueOf(session.id()) , offset) ,
-                        max("MAX", offset)),
-                callback
+                        eq("session" , session.id())),
+                set("offset" , offset) ,
+                new UpdateOptions().upsert(true) ,
+                new AttachableConditionSingleResultCallback<UpdateResult, OperationResultListener<Boolean>>()
+                .attach(callback)
+                .ifSuccess((u,c)->{
+                    c.onSuccess(
+                            u.getModifiedCount()>0 ||
+                                    u.getUpsertedId()!=null
+                    );
+                })
+                .ifFail(FailCaller.RUNTIME_FAIL_CALLER)
         );
     }
 
