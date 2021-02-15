@@ -10,7 +10,7 @@ public interface MessageManager<T , ID> {
     long createConversation(long id);
     void createConversation(OperationResultListener<Long> callback);
     long createConversation();
-    void readMessages(List<ReadMessageCriteria> criteria, Consumer<PubMessage<T , ID>> forEach);
-    Iterable<PubMessage<T , ID>> readMessages(List<ReadMessageCriteria> criteria);
-    Iterable<PubMessage<T , ID>> readMessages(ReadMessageCriteria... criteria);
+    void readMessages(List<ReadMessageCriteria<ID>> criteria, Consumer<PubMessage<T , ID>> forEach);
+    Iterable<PubMessage<T , ID>> readMessages(List<ReadMessageCriteria<ID>> criteria);
+    Iterable<PubMessage<T , ID>> readMessages(ReadMessageCriteria<ID>... criteria);
 }

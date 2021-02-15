@@ -183,7 +183,7 @@ public class MongoMessageManager<T> implements MessageManager<T , String> {
     }
 
     @Override
-    public void readMessages(List<ReadMessageCriteria> criteria, Consumer<PubMessage<T,String>> forEach) {
+    public void readMessages(List<ReadMessageCriteria<String>> criteria, Consumer<PubMessage<T,String>> forEach) {
         messageStore.readStoredMessageByCriteria(
                 criteria,
                 serializer,
@@ -193,7 +193,7 @@ public class MongoMessageManager<T> implements MessageManager<T , String> {
     }
 
     @Override
-    public Iterable<PubMessage<T , String>> readMessages(List<ReadMessageCriteria> criteria) {
+    public Iterable<PubMessage<T , String>> readMessages(List<ReadMessageCriteria<String>> criteria) {
         MessageIterable<T> messageIterable = new MessageIterable<>();
         messageStore.readStoredMessageByCriteria(
                 criteria ,
@@ -206,7 +206,7 @@ public class MongoMessageManager<T> implements MessageManager<T , String> {
     }
 
     @Override
-    public Iterable<PubMessage<T , String>> readMessages(ReadMessageCriteria... criteria) {
+    public Iterable<PubMessage<T , String>> readMessages(ReadMessageCriteria<String>... criteria) {
         return readMessages(Arrays.asList(criteria));
     }
 }

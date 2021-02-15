@@ -543,7 +543,7 @@ public class MongoMessageStore {
                 } , done);
     }
 
-    public void readStoredMessageByCriteria(List<ReadMessageCriteria> criteria ,
+    public void readStoredMessageByCriteria(List<ReadMessageCriteria<String>> criteria ,
                                             BodySerializer serializer , Block<PubMessage> forEach , SingleResultCallback<Void> done)
     {
 
