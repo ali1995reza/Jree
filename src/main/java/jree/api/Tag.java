@@ -6,6 +6,8 @@ public interface Tag {
 
     String name();
 
+    String value();
+
     Instant time();
 
     long client();

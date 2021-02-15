@@ -7,11 +7,13 @@ import java.time.Instant;
 public class TagImpl implements Tag {
 
     private final String name;
+    private final String value;
     private final Instant time;
     private final long client;
 
-    public TagImpl(String name, Instant time, long client) {
+    public TagImpl(String name, String value, Instant time, long client) {
         this.name = name;
+        this.value = value;
         this.time = time;
         this.client = client;
     }
@@ -20,6 +22,11 @@ public class TagImpl implements Tag {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public String value() {
+        return value;
     }
 
     @Override

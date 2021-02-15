@@ -159,29 +159,18 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T , Str
     }
 
     @Override
-    public void addTag(Recipient recipient, InsertTag tag, OperationResultListener<InsertTagResult> result) {
+    public void addTag(Recipient recipient, InsertTag tag, OperationResultListener<Tag> result) {
         assertIfClosed();
-        detailsStore.setTag(this,
+        messageStore.setTag(this,
                 recipient ,
                 tag,
-                new SingleResultCallback<InsertTagResult>() {
-                    @Override
-                    public void onResult(InsertTagResult insertTagResult, Throwable throwable) {
-                        if(throwable!=null)
-                        {
-                            result.onFailed(new FailReason(throwable ,
-                                    MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                        }else {
-                            result.onSuccess(insertTagResult);
-                        }
-                    }
-                }
+                result
         );
     }
 
     @Override
-    public InsertTagResult addTag(Recipient recipient, InsertTag tag) {
-        AsyncToSync<InsertTagResult> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+    public Tag addTag(Recipient recipient, InsertTag tag) {
+        AsyncToSync<Tag> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         addTag(recipient, tag , asyncToSync);
         return asyncToSync.getResult();
     }

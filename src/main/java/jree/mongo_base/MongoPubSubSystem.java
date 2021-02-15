@@ -9,6 +9,8 @@ import jree.api.PubSubSystem;
 import jree.api.SessionManager;
 import jree.util.Assertion;
 
+import java.util.concurrent.Executors;
+
 public class MongoPubSubSystem<T> implements PubSubSystem<T , String> {
 
     private final SerializerReference<T> serializer;
@@ -20,6 +22,9 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T , String> {
     private final MongoClientDetailsStore detailsStore;
     private final MongoMessageStore messageStore;
     private final String id;
+    private final BatchContext batchContext = new BatchContext(
+            Executors.newScheduledThreadPool(2)
+    );
 
     public MongoPubSubSystem(String id , BodySerializer<T> serializer) {
         Assertion.ifNullString("id can not be empty or null" , id);
@@ -28,8 +33,8 @@ public class MongoPubSubSystem<T> implements PubSubSystem<T , String> {
         database = client.getDatabase("MSG_"+id);
         this.serializer = new SerializerReference<>(serializer);
         this.holder = new ClientsHolder();
-        messageStore = new MongoMessageStore(database);
-        detailsStore = new MongoClientDetailsStore(database , messageStore);
+        messageStore = new MongoMessageStore(database, batchContext);
+        detailsStore = new MongoClientDetailsStore(database , messageStore, batchContext);
         messageStore.setDetailsStore(detailsStore);
 
 

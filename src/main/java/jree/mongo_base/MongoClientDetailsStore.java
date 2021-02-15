@@ -3,17 +3,14 @@ package jree.mongo_base;
 import com.mongodb.Block;
 import com.mongodb.client.model.*;
 import com.mongodb.client.result.InsertManyResult;
-import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import jree.api.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -81,14 +78,20 @@ public class MongoClientDetailsStore {
     private final MongoMessageStore messageStore;
     private final AsyncMongoCollection<Document> clientsDetailsStoreCollection;
     private final AsyncMongoCollection<Document> clientOffsetStoreCollection;
+    private final BatchContext batchContext;
 
-    public MongoClientDetailsStore(AsyncMongoDatabase database, MongoMessageStore messageStore) {
+    public MongoClientDetailsStore(AsyncMongoDatabase database, MongoMessageStore messageStore, BatchContext batchContext) {
         this.database = database;
         this.messageStore = messageStore;
+        this.batchContext = batchContext;
         this.clientsDetailsStoreCollection =
                 this.database.getCollection(CLIENT_DETAILS_STORE_COLLECTION_NAME);
         this.clientOffsetStoreCollection =
                 this.database.getCollection(CLIENT_OFFSET_STORE_COLLECTION_NAME);
+
+        batchContext.createNewUpdateBatch("offset" , clientOffsetStoreCollection , 2000, 100);
+        batchContext.createNewUpdateBatch("details" , clientsDetailsStoreCollection , 2000 , 100);
+
 
         DBStaticFunctions.createIndex(
                 clientsDetailsStoreCollection ,
@@ -104,37 +107,8 @@ public class MongoClientDetailsStore {
         );
     }
 
-    private final static Bson updateTags(InsertTag[] tags , String[] names)
-    {
-        Document document = new Document();
-
-        int count = 0;
-        for(InsertTag tag:tags)
-        {
-            document.append(tag.name() , tag.idIndex());
-            names[count++] = tag.name();
-        }
-
-        return new Document().append("$max" , document);
-    }
-
-    public void setTag(Session session, Recipient recipient , InsertTag insertTag,
-                       SingleResultCallback<InsertTagResult> callback)
-    {
-
-        final FindOneAndUpdateOptions deliveryOption = new FindOneAndUpdateOptions()
-                .upsert(true)
-                .projection(include(insertTag.name()));
-
-        String conversation = StaticFunctions.uniqueConversationId(session , recipient);
 
 
-        clientOffsetStoreCollection.findOneAndUpdate(
-                and(eq("client", session.clientId()) ,
-                        eq("conversation" , conversation)),
-                deliveryOption,
-        );
-    }
 
 
     public void addClient(long client , SingleResultCallback<UpdateResult> result)
@@ -247,18 +221,18 @@ public class MongoClientDetailsStore {
 
     public void setMessageOffset(Session session , String offset , OperationResultListener<Boolean> callback)
     {
-        clientOffsetStoreCollection.updateOne(
+        batchContext.getUpdateBatch("offset").updateOne(
                 and(eq("client" , session.clientId()),
                         eq("session" , session.id())),
                 set("offset" , offset) ,
                 new UpdateOptions().upsert(true) ,
-                new AttachableConditionSingleResultCallback<UpdateResult, OperationResultListener<Boolean>>()
+                new AttachableConditionSingleResultCallback<Void, OperationResultListener<Boolean>>()
                 .attach(callback)
-                .ifSuccess((u,c)->{
-                    c.onSuccess(
-                            u.getModifiedCount()>0 ||
-                                    u.getUpsertedId()!=null
-                    );
+                .ifSuccess(new BiConsumer<Void, OperationResultListener<Boolean>>() {
+                    @Override
+                    public void accept(Void aVoid, OperationResultListener<Boolean> booleanOperationResultListener) {
+                        callback.onSuccess(true);
+                    }
                 })
                 .ifFail(FailCaller.RUNTIME_FAIL_CALLER)
         );
@@ -308,6 +282,7 @@ public class MongoClientDetailsStore {
     }
 
 
+    @Deprecated
     void storeMessageZeroOffset(Session publisher ,
                                 Recipient recipient ,
                                 PubMessage.Type type ,
@@ -351,6 +326,7 @@ public class MongoClientDetailsStore {
             .upsert(true);
 
 
+    @Deprecated
     void storeMessageOffset(Session session ,
                             boolean justThisSession ,
                             String conversation ,

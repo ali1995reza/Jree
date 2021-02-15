@@ -25,9 +25,9 @@ public interface Session<T , ID> extends Attachable {
 
     PubMessage<T , ID> publishDisposableMessage(Recipient recipient , T message);
 
-    void addTag(Recipient recipient, InsertTag tag, OperationResultListener<InsertTagResult> result);
+    void addTag(Recipient recipient, InsertTag tag, OperationResultListener<Tag> result);
 
-    InsertTagResult addTag(Recipient recipient, InsertTag tag);
+    Tag addTag(Recipient recipient, InsertTag tag);
 
     void setMessageOffset(ID offset, OperationResultListener<Boolean> callback);
 

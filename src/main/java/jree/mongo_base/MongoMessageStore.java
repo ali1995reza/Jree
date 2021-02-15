@@ -6,7 +6,6 @@ import com.mongodb.client.result.InsertManyResult;
 import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
-import com.mongodb.internal.async.client.AsyncFindIterable;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.api.*;
@@ -18,10 +17,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static com.mongodb.client.model.Filters.*;
+import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.Updates.*;
 
 public class MongoMessageStore {
@@ -43,11 +41,12 @@ public class MongoMessageStore {
     private final AsyncMongoCollection<Document> messageCollection;
     private final AsyncMongoCollection<Document> conversationCollection;
     private MongoClientDetailsStore detailsStore;
-    private final InsertBatch batch;
+    private final BatchContext batchContext;
     private final IDBuilder idBuilder = new IDBuilder(1, System::currentTimeMillis);
 
-    public MongoMessageStore(AsyncMongoDatabase database) {
+    public MongoMessageStore(AsyncMongoDatabase database, BatchContext batchContext) {
         this.database = database;
+        this.batchContext = batchContext;
         messageCollection = this.database.getCollection(MESSAGE_COLLECTION_NAME);
         conversationCollection = this.database.getCollection(CONVERSATION_COLLECTION_NAME);
         DBStaticFunctions.createIndex(
@@ -55,7 +54,9 @@ public class MongoMessageStore {
                 Indexes.ascending("conversation" , "id" , "disposable")
         );
 
-        batch = new InsertBatch(messageCollection , Executors.newScheduledThreadPool(1), 2000 , 100);
+        this.batchContext.createNewUpdateBatch("message" , messageCollection , 2000 , 150);
+        this.batchContext.createNewInsertBatch("message" , messageCollection , 2000 , 100);
+
     }
 
     void setDetailsStore(MongoClientDetailsStore detailsStore) {
@@ -107,6 +108,49 @@ public class MongoMessageStore {
         );
     }
 
+
+    public void setTag(Session session, Recipient recipient , InsertTag insertTag,
+                       OperationResultListener<Tag> callback)
+    {
+
+        final FindOneAndUpdateOptions deliveryOption = new FindOneAndUpdateOptions()
+                .upsert(true)
+                .projection(include(insertTag.name()));
+
+        String conversation = StaticFunctions.uniqueConversationId(session , recipient);
+
+
+        Instant now = Instant.now();
+
+        Document document = new Document()
+                .append("name" , insertTag.name())
+                .append("value" , insertTag.value())
+                .append("client" , session.clientId())
+                .append("time" , now);
+
+        batchContext.getUpdateBatch("message").updateMany(
+                and(eq("conversation", conversation),
+                        gte("_id", insertTag.from()),
+                        lte("_id", insertTag.to())),
+                push("tags", document),
+
+                new SingleResultCallback<Void>() {
+                    @Override
+                    public void onResult(Void aVoid, Throwable throwable) {
+                        if(throwable!=null)
+                        {
+                            callback.onFailed(new FailReason(MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                        }else {
+                            callback.onSuccess(
+                                    new TagImpl(insertTag.name() , insertTag.value() ,
+                                            now ,session.clientId())
+                            );
+                        }
+                    }
+                }
+
+        );
+    }
 
     public void isConversationExists(long conversation , SingleResultCallback<Boolean> callback){
 
@@ -289,70 +333,29 @@ public class MongoMessageStore {
                         .append("session" , publisher.id())
         ).append("conversation" , StaticFunctions.uniqueConversationId(publisher ,recipient));
 
-        if(/*messageId == 1 &&*/ type.isNot(PubMessage.Type.CLIENT_TO_CONVERSATION))
-        {
-            detailsStore.storeMessageZeroOffset(
-                    publisher, recipient, type,
-                    new SingleResultCallback<InsertManyResult>() {
-                        @Override
-                        public void onResult(InsertManyResult insertManyResult, Throwable throwable) {
-                            if(throwable!=null)
-                            {
-                                callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                            }else {
-
-                                messageCollection.insertOne(
-                                        messageDocument,
-                                        new SingleResultCallback<InsertOneResult>() {
-                                            @Override
-                                            public void onResult(InsertOneResult insertOneResult, Throwable throwable) {
-                                                if(throwable!=null)
-                                                {
-                                                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                                                }else
-                                                {
-                                                    callback.onSuccess(
-                                                            new PubMessageImpl(
-                                                                    messageId ,
-                                                                    message ,
-                                                                    time ,
-                                                                    type,
-                                                                    publisher,
-                                                                    recipient)
-                                                    );
-                                                }
-                                            }
-                                        }
-                                );
-                            }
+        batchContext.getInsertBatch("message").insertOne(
+                messageDocument,
+                new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
+                        if(throwable!=null)
+                        {
+                            callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                        }else
+                        {
+                            callback.onSuccess(
+                                    new PubMessageImpl(
+                                            messageId ,
+                                            message ,
+                                            time ,
+                                            type,
+                                            publisher,
+                                            recipient)
+                            );
                         }
                     }
-            );
-        }else {
-            batch.putInBatch(
-                    new InsertOneModel<>(messageDocument),
-                    new SingleResultCallback<Document>() {
-                        @Override
-                        public void onResult(Document document, Throwable throwable) {
-                            if(throwable!=null)
-                            {
-                                callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                            }else
-                            {
-                                callback.onSuccess(
-                                        new PubMessageImpl(
-                                                messageId ,
-                                                message ,
-                                                time ,
-                                                type,
-                                                publisher,
-                                                recipient)
-                                );
-                            }
-                        }
-                    }
-            );
-        }
+                }
+        );
 
     }
 

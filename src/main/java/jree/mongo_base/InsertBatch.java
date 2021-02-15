@@ -2,9 +2,11 @@ package jree.mongo_base;
 
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.InsertOneOptions;
 import com.mongodb.client.model.WriteModel;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
+import jnr.ffi.annotations.In;
 import jree.util.BatchExecutor;
 import jree.util.Converter;
 import jree.util.ConverterList;
@@ -83,6 +85,11 @@ public class InsertBatch extends BatchExecutor<InsertBatch.AsyncInsertModel> {
     {
         putInBatch(new AsyncInsertModel(insert, callback));
         return this;
+    }
+
+    public InsertBatch insertOne(Document insert , SingleResultCallback<Document> callback)
+    {
+        return putInBatch(new InsertOneModel<Document>(insert) , callback);
     }
 
 
