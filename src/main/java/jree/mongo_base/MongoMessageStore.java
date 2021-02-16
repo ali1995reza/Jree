@@ -469,44 +469,11 @@ public class MongoMessageStore {
         return bson;
     }
 
-    private final static Bson criteriaFilter(List<ReadMessageCriteria> criteria)
-    {
-        if(criteria==null || criteria.size()<1)
-            return new Document();
-
-        Bson[] ors = new Bson[criteria.size()];
-
-        for(int i=0;i<criteria.size();i++)
-        {
-            ReadMessageCriteria cri = criteria.get(i);
-
-
-            if(cri.length()!=-1) {
-                if (cri.backward()) {
-                    ors[i] = and(eq("conversation", StaticFunctions.uniqueConversationId(cri.session(), cri.recipient())),
-                            lt("id", cri.offset()) , gte("id" , cri.offset()-cri.length()));
-                }else {
-                    ors[i] = and(eq("conversation", StaticFunctions.uniqueConversationId(cri.session(), cri.recipient())),
-                            gt("id", cri.offset()) , lte("id" , cri.offset()+cri.length()));
-                }
-            }else
-            {
-                if (cri.backward()) {
-                    ors[i] = and(eq("conversation", StaticFunctions.uniqueConversationId(cri.session(), cri.recipient())),
-                            lt("id", cri.offset()));
-                }else {
-                    ors[i] = and(eq("conversation", StaticFunctions.uniqueConversationId(cri.session(), cri.recipient())),
-                            gt("id", cri.offset()));
-                }
-            }
-
-        }
-
-        return or(ors);
-    }
-
-    public void readStoredMessage(List<ConversationOffset> offsets ,
-                                  BodySerializer serializer , Block<PubMessage> forEach , SingleResultCallback<Void> done)
+    public void readStoredMessage(Session session ,
+                                  List<String> offsets ,
+                                  BodySerializer serializer ,
+                                  Block<PubMessage> forEach ,
+                                  SingleResultCallback<Void> done)
     {
         if(offsets==null || offsets.size()<1) {
             done.onResult(null, null);
