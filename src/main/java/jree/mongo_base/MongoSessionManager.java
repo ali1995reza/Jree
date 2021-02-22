@@ -4,6 +4,7 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import jree.api.*;
 
+import java.util.Collections;
 import java.util.List;
 
 public class MongoSessionManager<T> implements SessionManager<T , String> {
@@ -133,62 +134,47 @@ public class MongoSessionManager<T> implements SessionManager<T , String> {
                 new SingleResultCallback<Boolean>() {
                     @Override
                     public void onResult(Boolean aBoolean, Throwable throwable) {
-                        if(throwable==null)
+                        if(throwable!=null)
                         {
-                            if(aBoolean)
-                            {
-                                MongoSession session = new MongoSession(clientId ,
-                                        sessionId , eventListener, messageStore, detailsStore, clients, subscribers, serializer);
-                                session.preInitialized();
-                                clients.addNewSession(session);
-                                session.onInitialized();
-                                detailsStore.getConversationOffsets(
-                                        session,
-                                        new SingleResultCallback<List<ConversationOffset>>() {
-                                            @Override
-                                            public void onResult(List<ConversationOffset> conversationOffsets, Throwable throwable) {
-                                                if(throwable!=null)
-                                                {
-                                                    clients.removeSession(session);
-                                                    callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                                                    return;
+                            callback.onFailed(new FailReason(MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                        }else if(!aBoolean) {
+                            callback.onFailed(new FailReason(MongoFailReasonsCodes.SESSION_NOT_EXISTS));
+                        }else {
+                            MongoSession<T> session = new MongoSession<>(
+                                    clientId ,
+                                    sessionId ,
+                                    eventListener ,
+                                    messageStore ,
+                                    detailsStore ,
+                                    clients ,
+                                    subscribers ,
+                                    serializer
+                            );
+                            clients.addNewSession(session);
+
+                            detailsStore.getSessionOffset(session, new SingleResultCallback<String>() {
+                                @Override
+                                public void onResult(String s, Throwable throwable) {
+                                    messageStore.readStoredMessage(
+                                            session, s, Collections.emptyList(),
+                                            serializer,
+                                            session::beforeRelease,
+                                            new SingleResultCallback<Void>() {
+                                                @Override
+                                                public void onResult(Void aVoid, Throwable throwable) {
+                                                    if(throwable!=null)
+                                                    {
+                                                        //so handle it
+                                                        callback.onFailed(new FailReason(MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                                                    }else {
+                                                        session.release();
+                                                        callback.onSuccess(session);
+                                                    }
                                                 }
-
-                                                try{
-                                                    subscribers.addSubscriberByOffsets(conversationOffsets , session , OperationResultListener.EMPTY_LISTENER);
-                                                }catch (Throwable e)
-                                                {
-                                                    clients.removeSession(session);
-                                                    callback.onFailed(new FailReason(e , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
-                                                    return;
-                                                }
-
-                                                callback.onSuccess(session);
-
-                                                messageStore.readStoredMessage(conversationOffsets, serializer
-                                                        , session::beforeRelease , new SingleResultCallback<Void>() {
-                                                            @Override
-                                                            public void onResult(Void aVoid, Throwable throwable) {
-
-                                                                if(throwable!=null)
-                                                                {
-                                                                    session.closeByException(throwable);
-                                                                }else {
-                                                                    session.release();
-                                                                }
-                                                            }
-                                                        });
                                             }
-                                        }
-                                );
-                                
-                            }else
-                            {
-                                callback.onFailed(new FailReason(MongoFailReasonsCodes.SESSION_NOT_EXISTS));
-                            }
-                        }else
-                        {
-                            callback.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                                    );
+                                }
+                            });
                         }
                     }
                 }

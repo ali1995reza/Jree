@@ -23,45 +23,7 @@ import static com.mongodb.client.model.Updates.*;
 public class MongoClientDetailsStore {
 
 
-    private final static class OffsetFetcher implements Block<Document> , SingleResultCallback<Void>
-    {
-        private List<ConversationOffset> offsets = new ArrayList<>();
-        private final Session session;
-        private final SingleResultCallback<List<ConversationOffset>> resultCallback;
 
-        private OffsetFetcher(Session session, SingleResultCallback<List<ConversationOffset>> resultCallback) {
-            this.session = session;
-            this.resultCallback = resultCallback;
-        }
-
-        @Override
-        public void apply(Document document) {
-            String offsetKey = String.valueOf(session.id());
-            long offset = document.containsKey(offsetKey)
-                    ?document.getLong(offsetKey):
-                    document.getLong("MAX")-20;
-
-            offset = Math.max(offset, 0l);
-
-            offsets.add(
-                    new ConversationOffset(
-                            document.getString("conversation") ,
-                            offset
-                    )
-            );
-        }
-
-        @Override
-        public void onResult(Void aVoid, Throwable throwable) {
-            if(throwable!=null)
-            {
-                resultCallback.onResult(null , throwable);
-            }else
-            {
-                resultCallback.onResult(offsets , null);
-            }
-        }
-    }
 
 
 
@@ -208,15 +170,30 @@ public class MongoClientDetailsStore {
         });
     }
 
-    public void getConversationOffsets(Session session , SingleResultCallback<List<ConversationOffset>> callback)
+    public void getSessionOffset(Session session , SingleResultCallback<String> callback)
     {
-        OffsetFetcher offsetFetcher = new OffsetFetcher(session, callback);
         clientOffsetStoreCollection.find(
                 and(eq("client" , session.clientId()) ,
-                        or(eq("session" ,session.id()) ,
-                                exists("session" , false)))
-        ).projection(include(String.valueOf(session.id()) ,
-                "MAX" , "conversation")).forEach(offsetFetcher , offsetFetcher);
+                        eq("session" ,session.id()))
+        ).first(
+                new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
+                        if(throwable!=null)
+                        {
+                            callback.onResult(null , new FailReason(MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                        }else if(document==null)
+                        {
+                            callback.onResult("0" , null);
+                        }else {
+                            callback.onResult(
+                                    (String) document.getOrDefault("offset" , "0") ,
+                                    null
+                            );
+                        }
+                    }
+                }
+        );
     }
 
     public void setMessageOffset(Session session , String offset , OperationResultListener<Boolean> callback)

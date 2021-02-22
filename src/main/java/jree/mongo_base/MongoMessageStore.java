@@ -469,17 +469,38 @@ public class MongoMessageStore {
         return bson;
     }
 
+
+    private final static Bson clientMessageReadFilter(
+            Session session ,
+            String offset ,
+            List<String> conversation
+    ){
+
+        return or(
+                and(eq("recipient.client" , session.clientId())
+                        , or(eq("recipient.session" , session.id()) ,
+                                exists("recipient.session" , false))) ,
+                and(eq("publisher.client" , session.clientId())
+                        , or(eq("publisher.session" , session.id()) ,
+                                exists("recipient.session" , false))) ,
+                in("recipient.conversation" , conversation)
+        );
+    }
+
     public void readStoredMessage(Session session ,
-                                  List<String> offsets ,
+                                  String offset ,
+                                  List<String> conversations ,
                                   BodySerializer serializer ,
                                   Block<PubMessage> forEach ,
                                   SingleResultCallback<Void> done)
     {
-        if(offsets==null || offsets.size()<1) {
-            done.onResult(null, null);
-            return;
-        }
-        messageCollection.find(offsetFilter(offsets))
+        messageCollection.find(
+                clientMessageReadFilter(
+                        session ,
+                        offset ,
+                        conversations
+                )
+        )
         .forEach(new Block<Document>() {
             @Override
             public void apply(Document document) {
@@ -509,6 +530,13 @@ public class MongoMessageStore {
                     }
                 } , done);
     }
+
+
+    private final static Bson criteriaFilter(List<ReadMessageCriteria<String>> criteria)
+    {
+        return new Document();
+    }
+
 
     public void readStoredMessageByCriteria(List<ReadMessageCriteria<String>> criteria ,
                                             BodySerializer serializer , Block<PubMessage> forEach , SingleResultCallback<Void> done)
