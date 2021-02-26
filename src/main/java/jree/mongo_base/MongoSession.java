@@ -263,6 +263,34 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T , Str
         return false;
     }
 
+    @Override
+    public void setRelationProperties(Recipient recipient, String key, String value, OperationResultListener<Boolean> result) {
+        detailsStore.addRelation(
+                this,
+                recipient,
+                key,
+                value,
+                new SingleResultCallback<Void>() {
+                    @Override
+                    public void onResult(Void aVoid, Throwable throwable) {
+                        if(throwable!=null)
+                        {
+                            result.onFailed(new FailReason(throwable , RUNTIME_EXCEPTION));
+                        }else {
+                            result.onSuccess(true);
+                        }
+                    }
+                }
+        );
+    }
+
+    @Override
+    public boolean setRelationProperties(Recipient recipient, String key, String value) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        setRelationProperties(recipient, key, value , asyncToSync);
+        return asyncToSync.getResult();
+    }
+
 
     public void onMessagePublished(PubMessage message)
     {

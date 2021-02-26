@@ -33,6 +33,9 @@ public class MongoClientDetailsStore {
     private final static String CLIENT_OFFSET_STORE_COLLECTION_NAME =
             "OFFSETS";
 
+    private final static String RELATION_DETAILS_STORE_COLLECTION_NAME =
+            "RELATION";
+
 
 
 
@@ -40,6 +43,7 @@ public class MongoClientDetailsStore {
     private final MongoMessageStore messageStore;
     private final AsyncMongoCollection<Document> clientsDetailsStoreCollection;
     private final AsyncMongoCollection<Document> clientOffsetStoreCollection;
+    private final AsyncMongoCollection<Document> relationStoreCollection;
     private final BatchContext batchContext;
 
     public MongoClientDetailsStore(AsyncMongoDatabase database, MongoMessageStore messageStore, BatchContext batchContext) {
@@ -51,9 +55,12 @@ public class MongoClientDetailsStore {
         this.clientOffsetStoreCollection =
                 this.database.getCollection(CLIENT_OFFSET_STORE_COLLECTION_NAME);
 
+        this.relationStoreCollection =
+                this.database.getCollection(RELATION_DETAILS_STORE_COLLECTION_NAME);
+
         batchContext.createNewUpdateBatch("offset" , clientOffsetStoreCollection , 2000, 100);
         batchContext.createNewUpdateBatch("details" , clientsDetailsStoreCollection , 2000 , 100);
-
+        batchContext.createNewUpdateBatch("relation" , relationStoreCollection , 2000 , 100);
 
         DBStaticFunctions.createIndex(
                 clientsDetailsStoreCollection ,
@@ -325,5 +332,21 @@ public class MongoClientDetailsStore {
 
         clientOffsetStoreCollection.updateOne(filter , update , WITH_UPSERT , callback);
 
+    }
+
+
+    public void addRelation(Session session , Recipient recipient , String key , String value , SingleResultCallback<Void> callback)
+    {
+        //so handle them please !
+
+        String id = StaticFunctions.uniqueConversationId(session, recipient);
+
+        batchContext.getUpdateBatch("relation")
+                .updateOne(
+                        eq("_id" , id),
+                        set("C_".concat(String.valueOf(session.clientId())).concat(".").concat(key) ,
+                                value) ,
+                        callback
+                );
     }
 }

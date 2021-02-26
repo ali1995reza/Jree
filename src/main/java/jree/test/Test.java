@@ -158,53 +158,15 @@ public class Test {
 
         System.out.println("WTF?");*/
 
-        /*Session<String> session1_1 = mongoPubSubSystem.sessionManager()
-        .connectToService(1 , 1 , new MyEventListener("SESSION 1-1"));*/
 
         Session<String , String> session1_2 = mongoPubSubSystem.sessionManager()
-                .connectToService(1 , 2 , new MyEventListener("S!@"));
+                .connectToService(2 , 1 , new MyEventListener("1"));
 
 
-        Recipient recipient = RecipientImpl.conversationRecipient(3371223121818720070l);
 
-        try {
-            session1_2.subscribe(
-                    new Subscribe()
-                            .setConversation(recipient.conversation())
-                            .setOption(
-                                    new SubscribeOption()
-                                            .setLastMessages(20)
-                                            .setJustThiSession(true)
-                            )
-            );
-        }catch (Throwable e)
-        {
-            e.printStackTrace();
-        }
+        //System.out.println(message);
 
-        Thread.sleep(1000);
 
-        System.out.println("HERE ");
-        PubMessage message = session1_2.publishMessage(recipient ,
-                "Hello world");
-        System.out.println("NEW MESSAGE : "+message);
-
-        System.out.println("DONE");
-        /*long start = System.currentTimeMillis();
-        CounterOPListener c = new CounterOPListener(1000000);
-        for(int i=1;i<=1000000;i++)
-        {
-
-            session1_2.publishMessage(
-                    recipient,
-                    "HELLO",
-                    c
-            );
-        }
-        c.await();
-
-        System.out.println("WINNER : "+(System.currentTimeMillis()-start));
-         */
         Thread.sleep(1000000);
     }
 }

@@ -25,11 +25,6 @@ import static com.mongodb.client.model.Updates.*;
 public class MongoMessageStore {
 
 
-    private final static FindOneAndUpdateOptions FIND_ONE_OPTIONS_WITH_UPSERT  =
-            new FindOneAndUpdateOptions().upsert(true);
-    private final static FindOneAndUpdateOptions FIND_ONE_OPTIONS_WITHOUT_UPSERT =
-            new FindOneAndUpdateOptions().upsert(false);
-
     private final static UpdateOptions UPDATE_OPTIONS_WITH_UPSERT =
             new UpdateOptions().upsert(true);
 
@@ -49,9 +44,12 @@ public class MongoMessageStore {
         this.batchContext = batchContext;
         messageCollection = this.database.getCollection(MESSAGE_COLLECTION_NAME);
         conversationCollection = this.database.getCollection(CONVERSATION_COLLECTION_NAME);
+
         DBStaticFunctions.createIndex(
                 messageCollection  ,
-                Indexes.ascending("conversation" , "id" , "disposable")
+                Indexes.ascending("publisher.client" , "publisher.session" ,
+                         "recipient.client" , "recipient.session" ,
+                        "recipient.conversation" , "id" , "disposable")
         );
 
         this.batchContext.createNewUpdateBatch("message" , messageCollection , 2000 , 150);
@@ -112,10 +110,6 @@ public class MongoMessageStore {
     public void setTag(Session session, Recipient recipient , InsertTag insertTag,
                        OperationResultListener<Tag> callback)
     {
-
-        final FindOneAndUpdateOptions deliveryOption = new FindOneAndUpdateOptions()
-                .upsert(true)
-                .projection(include(insertTag.name()));
 
         String conversation = StaticFunctions.uniqueConversationId(session , recipient);
 
@@ -331,7 +325,7 @@ public class MongoMessageStore {
                 new Document()
                         .append("client" , publisher.clientId())
                         .append("session" , publisher.id())
-        ).append("conversation" , StaticFunctions.uniqueConversationId(publisher ,recipient));
+        );
 
         batchContext.getInsertBatch("message").insertOne(
                 messageDocument,
@@ -479,10 +473,10 @@ public class MongoMessageStore {
         return or(
                 and(eq("recipient.client" , session.clientId())
                         , or(eq("recipient.session" , session.id()) ,
-                                exists("recipient.session" , false))) ,
+                                eq("recipient.session" , -1))) ,
                 and(eq("publisher.client" , session.clientId())
                         , or(eq("publisher.session" , session.id()) ,
-                                exists("recipient.session" , false))) ,
+                                eq("recipient.session" , -1))) ,
                 in("recipient.conversation" , conversation)
         );
     }

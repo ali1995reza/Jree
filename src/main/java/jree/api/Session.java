@@ -41,4 +41,8 @@ public interface Session<T , ID> extends Attachable {
 
     boolean unsubscribe(long conversations);
 
+    void setRelationProperties(Recipient recipient , String key , String value , OperationResultListener<Boolean> result);
+
+    boolean setRelationProperties(Recipient recipient , String key , String value );
+
 }
