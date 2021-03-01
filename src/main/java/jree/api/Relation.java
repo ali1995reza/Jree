@@ -7,18 +7,18 @@ public interface Relation {
 
     Relation EMPTY = new Relation() {
         @Override
-        public Map<String, String> publisherProperties() {
+        public Map<String, String> setByClient(long clientId) {
             return Collections.emptyMap();
         }
 
         @Override
-        public Map<String, String> recipientProperties() {
+        public Map<String, String> setByConversation(long conversationId) {
             return Collections.emptyMap();
         }
     };
 
 
-    Map<String , String> publisherProperties();
+    Map<String , String> setByClient(long clientId);
 
-    Map<String , String> recipientProperties();
+    Map<String , String> setByConversation(long conversationId);
 }

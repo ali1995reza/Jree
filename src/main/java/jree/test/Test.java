@@ -160,7 +160,12 @@ public class Test {
 
 
         Session<String , String> session1_2 = mongoPubSubSystem.sessionManager()
-                .connectToService(2 , 1 , new MyEventListener("1"));
+                .connectToService(2, 1, new RelationController() {
+                    @Override
+                    public boolean validatePublishMessage(Relation relation) {
+                        return true;
+                    }
+                } , new MyEventListener("1"));
 
 
 

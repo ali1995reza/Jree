@@ -14,6 +14,7 @@ import org.bson.conversions.Bson;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import static com.mongodb.client.model.Filters.*;
@@ -61,6 +62,7 @@ public class MongoClientDetailsStore {
         batchContext.createNewUpdateBatch("offset" , clientOffsetStoreCollection , 2000, 100);
         batchContext.createNewUpdateBatch("details" , clientsDetailsStoreCollection , 2000 , 100);
         batchContext.createNewUpdateBatch("relation" , relationStoreCollection , 2000 , 100);
+        batchContext.createNewFindBatch("relation" , relationStoreCollection , 1000 ,50);
 
         DBStaticFunctions.createIndex(
                 clientsDetailsStoreCollection ,
@@ -344,14 +346,48 @@ public class MongoClientDetailsStore {
         batchContext.getUpdateBatch("relation")
                 .updateOne(
                         eq("_id" , id),
-                        set("C_".concat(String.valueOf(session.clientId())).concat(".").concat(key) ,
+                        set("CL_".concat(String.valueOf(session.clientId())).concat(".").concat(key) ,
                                 value) ,
                         callback
                 );
     }
 
-    public void getRelation(String conversationId , OperationResultListener<Relation> relation)
-    {
+    public void getRelation(String conversationId , OperationResultListener<Relation> result) {
+        batchContext.getFindBatch("relation")
+                .findOne(conversationId, new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
 
+                        if(throwable!=null)
+                        {
+                            result.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                            return;
+                        }
+
+                        if(document==null)
+                        {
+                            result.onSuccess(Relation.EMPTY);
+                            return;
+                        }
+
+                        MongoRelation.Holder a = null;
+                        MongoRelation.Holder b = null;
+                        for(String key:document.keySet())
+                        {
+                            if(key.startsWith("CL")){
+                                long id = Long.parseLong(key.split("_")[1]);
+                                Map<String,String> map = (Map<String, String>) document.get(key);
+                                a = MongoRelation.Holder.clientHolder(id , map);
+                            }else if(key.startsWith("C"))
+                            {
+                                long id = Long.parseLong(key.split("_")[1]);
+                                Map<String,String> map = (Map<String, String>) document.get(key);
+                                b = MongoRelation.Holder.conversationHolder(id , map);
+                            }
+                        }
+
+                        result.onSuccess(new MongoRelation(a,b));
+                    }
+                });
     }
 }

@@ -3,12 +3,12 @@ package jree.mongo_base;
 import jree.api.OperationResultListener;
 import jree.api.Relation;
 
-public class RelationCache {
+public class RelationAndExistenceCache {
 
 
     private final MongoClientDetailsStore detailsStore;
 
-    public RelationCache(MongoClientDetailsStore detailsStore) {
+    public RelationAndExistenceCache(MongoClientDetailsStore detailsStore) {
         this.detailsStore = detailsStore;
     }
 

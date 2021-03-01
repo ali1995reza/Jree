@@ -11,6 +11,7 @@ public class BatchContext {
 
     private final Map<String , UpdateBatch> updateBatches = new ConcurrentHashMap<>();
     private final Map<String , InsertBatch> insertBatches = new ConcurrentHashMap<>();
+    private final Map<String , FindByIdBatch> findBatches = new ConcurrentHashMap<>();
     private final ScheduledExecutorService executorService;
 
     public BatchContext(ScheduledExecutorService executorService) {
@@ -46,6 +47,18 @@ public class BatchContext {
 
     }
 
+    public synchronized <T> FindByIdBatch<T> createNewFindBatch(String name , AsyncMongoCollection<Document> collection , int size , int timeout)
+    {
+        if(updateBatches.containsKey(name))
+            throw new IllegalStateException("this batch already exists");
+
+        FindByIdBatch<T> updateBatch = new FindByIdBatch<>(collection , executorService  , size , timeout);
+
+        findBatches.put(name , updateBatch);
+
+        return updateBatch;
+    }
+
     public UpdateBatch getUpdateBatch(String name)
     {
         return updateBatches.get(name);
@@ -54,5 +67,9 @@ public class BatchContext {
     public InsertBatch getInsertBatch(String name)
     {
         return insertBatches.get(name);
+    }
+
+    public <T> FindByIdBatch<T> getFindBatch(String name){
+        return findBatches.get(name);
     }
 }

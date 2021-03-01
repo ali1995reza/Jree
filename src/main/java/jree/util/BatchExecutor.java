@@ -1,8 +1,5 @@
 package jree.util;
 
-import com.google.common.util.concurrent.FutureCallback;
-import org.bson.types.ObjectId;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -24,7 +21,7 @@ public abstract class BatchExecutor<B>  {
 
         executorService = service;
         setBatchSize(batchSize);
-        intiBatch();
+        doConstructBatch();
         setTimeOut(timeOut , TimeUnit.MILLISECONDS);
 
     }
@@ -64,13 +61,13 @@ public abstract class BatchExecutor<B>  {
         List<B> capturedBatch = null;
         synchronized (_sync)
         {
-            if(!batch.add(b))
+            if(!addToBatch(b , batch))
                 throw new IllegalStateException("can not add to batch right now");
 
             if(batch.size()>=capturedBatchSize)
             {
                 capturedBatch = batch;
-                intiBatch();
+                doConstructBatch();
             }else {
                 return this;
             }
@@ -80,10 +77,11 @@ public abstract class BatchExecutor<B>  {
         return this;
     }
 
-    private final void intiBatch()
+    private final void doConstructBatch()
     {
         capturedBatchSize = batchSize;
         batch = new ArrayList<>(capturedBatchSize+10);
+        constructBatch(batchSize);
     }
 
     private final void timeCheck()
@@ -96,13 +94,22 @@ public abstract class BatchExecutor<B>  {
 
 
             capturedBatch = batch;
-            intiBatch();
+            doConstructBatch();
         }
 
         executeBatch(capturedBatch);
 
     }
 
+    public boolean addToBatch(B b , List<B> batch){
+
+        return batch.add(b);
+    }
+
+    public void constructBatch(int size)
+    {
+
+    }
 
     public abstract void executeBatch(List<B> batch);
 
