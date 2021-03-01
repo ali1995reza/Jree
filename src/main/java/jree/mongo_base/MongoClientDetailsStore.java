@@ -349,4 +349,9 @@ public class MongoClientDetailsStore {
                         callback
                 );
     }
+
+    public void getRelation(String conversationId , OperationResultListener<Relation> relation)
+    {
+
+    }
 }
