@@ -10,7 +10,9 @@ import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.api.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.omg.PortableServer.POAPackage.ObjectAlreadyActive;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,11 +33,11 @@ public class MongoClientDetailsStore {
     private final static String CLIENT_DETAILS_STORE_COLLECTION_NAME =
             "DETAILS";
 
-    private final static String CLIENT_OFFSET_STORE_COLLECTION_NAME =
-            "OFFSETS";
-
     private final static String RELATION_DETAILS_STORE_COLLECTION_NAME =
-            "RELATION";
+            "RELATIONS";
+
+    private final static String SESSIONS_DETAILS_STORE_COLLECTION_NAME =
+            "SESSIONS";
 
 
 
@@ -43,7 +45,7 @@ public class MongoClientDetailsStore {
     private final AsyncMongoDatabase database;
     private final MongoMessageStore messageStore;
     private final AsyncMongoCollection<Document> clientsDetailsStoreCollection;
-    private final AsyncMongoCollection<Document> clientOffsetStoreCollection;
+    private final AsyncMongoCollection<Document> sessionsDetailsStoreCollection;
     private final AsyncMongoCollection<Document> relationStoreCollection;
     private final BatchContext batchContext;
 
@@ -53,14 +55,19 @@ public class MongoClientDetailsStore {
         this.batchContext = batchContext;
         this.clientsDetailsStoreCollection =
                 this.database.getCollection(CLIENT_DETAILS_STORE_COLLECTION_NAME);
-        this.clientOffsetStoreCollection =
-                this.database.getCollection(CLIENT_OFFSET_STORE_COLLECTION_NAME);
 
         this.relationStoreCollection =
                 this.database.getCollection(RELATION_DETAILS_STORE_COLLECTION_NAME);
 
-        batchContext.createNewUpdateBatch("offset" , clientOffsetStoreCollection , 2000, 100);
-        batchContext.createNewUpdateBatch("details" , clientsDetailsStoreCollection , 2000 , 100);
+        this.sessionsDetailsStoreCollection =
+                this.database.getCollection(SESSIONS_DETAILS_STORE_COLLECTION_NAME);
+
+
+        batchContext.createNewUpdateBatch("clients" , clientsDetailsStoreCollection , 2000 , 100);
+        batchContext.createNewUpsertBatch("clients" , clientsDetailsStoreCollection , UpsertBatch.LONG_FETCHER , 2000 , 100);
+        batchContext.createNewFindBatch("clients" , clientsDetailsStoreCollection ,1000 , 100);
+        batchContext.createNewFindBatch("sessions" , sessionsDetailsStoreCollection , 1000 , 100);
+        batchContext.createNewUpsertBatch("sessions" , sessionsDetailsStoreCollection , UpsertBatch.STRING_FETCHER , 1000 , 100);
         batchContext.createNewUpdateBatch("relation" , relationStoreCollection , 2000 , 100);
         batchContext.createNewFindBatch("relation" , relationStoreCollection , 1000 ,50);
 
@@ -71,9 +78,9 @@ public class MongoClientDetailsStore {
         );
 
         DBStaticFunctions.createIndex(
-                clientOffsetStoreCollection ,
+                sessionsDetailsStoreCollection ,
                 Indexes.ascending(
-                        "client" , "session" , "conversation"
+                        "client" , "session"
                 )
         );
     }
@@ -82,110 +89,105 @@ public class MongoClientDetailsStore {
 
 
 
-    public void addClient(long client , SingleResultCallback<UpdateResult> result)
+    public void addClient(long client , SingleResultCallback<Boolean> result)
     {
-        batchContext.getUpdateBatch("details")
-                .updateOne(eq("client" , client) ,
-                        set("client" , client) ,
-                        new UpdateOptions().upsert(true) ,
-                        result);
+        batchContext.getUpsertBatch("clients")
+                .upsertOne(client ,
+                        result ,
+                        UpsertBatch.SetValue.setValue("joinTime" , Instant.now()));
     }
 
     public void addSessionToClient(long client ,
                                    SingleResultCallback<Long> callback)
     {
-        FindOneAndUpdateOptions oneAndUpdateOptions = new FindOneAndUpdateOptions();
-        oneAndUpdateOptions.upsert(false);
-        oneAndUpdateOptions.projection(include("sessionCount"));
-        clientsDetailsStoreCollection
-                .findOneAndUpdate(eq("client", client),
-                        inc("sessionCount", 1l),
-                        oneAndUpdateOptions,
-                        new SingleResultCallback<Document>() {
-                            @Override
-                            public void onResult(Document document, Throwable throwable) {
+        batchContext.getFindBatch("clients")
+                .findOne(client, new SingleResultCallback<Document>() {
+                    @Override
+                    public void onResult(Document document, Throwable throwable) {
 
-                                if(throwable!=null)
-                                {
-                                    callback.onResult(null , throwable);
-                                    return;
-                                }
-
-                                final long session = ((long) document.getOrDefault(
-                                        "sessionCount" , 0l
-                                ))+1;
-
-                                clientsDetailsStoreCollection
-                                        .updateOne(
-                                                eq("client", client),
-                                                addToSet("sessions", session),
-                                                new SingleResultCallback<UpdateResult>() {
-                                                    @Override
-                                                    public void onResult(UpdateResult updateResult, Throwable throwable) {
-
-                                                        if(throwable!=null)
+                        if(throwable!=null)
+                        {
+                            callback.onResult(null , throwable);
+                        }else {
+                            long sessionId = StaticFunctions.newID();
+                            batchContext.getUpsertBatch("sessions")
+                                    .upsertOne(
+                                            String.valueOf(client).concat("_").concat(String.valueOf(sessionId)),
+                                            new SingleResultCallback<Boolean>() {
+                                                @Override
+                                                public void onResult(Boolean aBoolean, Throwable throwable) {
+                                                    if(throwable!=null)
+                                                    {
+                                                        callback.onResult(null , throwable);
+                                                    }else {
+                                                        if(aBoolean)
                                                         {
-                                                            callback.onResult(null , throwable);
+                                                            callback.onResult(sessionId , null);
                                                         }else {
-                                                            callback.onResult(session,  null);
+                                                            callback.onResult(null , new IllegalStateException("fix it after"));
                                                         }
                                                     }
                                                 }
-                                        );
-                            }
+                                            },
+                                            UpsertBatch.SetValue.setValue("client", client),
+                                            UpsertBatch.SetValue.setValue("session", sessionId),
+                                            UpsertBatch.SetValue.setValue("offset" , "0")
+                                    );
                         }
-                );
-
+                    }
+                });
 
     }
 
     public void isSessionExists(long client , long session ,
                                 SingleResultCallback<Boolean> callback)
     {
-        clientsDetailsStoreCollection
-                .find(
-                        and(eq("client" , client) ,
-                                eq("sessions" , session))
-                ).first(new SingleResultCallback<Document>() {
-            @Override
-            public void onResult(Document document, Throwable throwable) {
-                if(throwable!=null)
-                {
-                    callback.onResult(null , throwable);
-                }else
-                {
-                    callback.onResult(document!=null , null);
-                }
-            }
-        });
+        batchContext.getFindBatch("sessions")
+                .findOne(String.valueOf(client).concat("_").concat(String.valueOf(session)),
+                        new SingleResultCallback<Document>() {
+                            @Override
+                            public void onResult(Document document, Throwable throwable) {
+                                if(throwable!=null)
+                                {
+                                    callback.onResult(null , throwable);
+                                }else
+                                {
+                                    callback.onResult(document!=null , null);
+                                }
+                            }
+                        });
     }
 
     public void isClientExists(long client ,
                                SingleResultCallback<Boolean> callback)
     {
-        clientsDetailsStoreCollection
-                .find(eq("client" , client))
-                .first(new SingleResultCallback<Document>() {
-            @Override
-            public void onResult(Document document, Throwable throwable) {
-                if(throwable!=null)
-                {
-                    callback.onResult(null , throwable);
-                }else
-                {
-                    callback.onResult(document!=null , null);
-                }
-            }
-        });
+        try {
+            batchContext.getFindBatch("clients")
+                    .findOne(client, new SingleResultCallback<Document>() {
+                        @Override
+                        public void onResult(Document document, Throwable throwable) {
+                            if (throwable != null) {
+                                callback.onResult(null, throwable);
+                            } else {
+                                callback.onResult(document != null, null);
+                            }
+                        }
+                    });
+        }catch (Throwable e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    private final static String uniqueId(Session session)
+    {
+        return String.valueOf(session.clientId()).concat("_").concat(String.valueOf(session.id()));
     }
 
     public void getSessionOffset(Session session , SingleResultCallback<String> callback)
     {
-        clientOffsetStoreCollection.find(
-                and(eq("client" , session.clientId()) ,
-                        eq("session" ,session.id()))
-        ).first(
-                new SingleResultCallback<Document>() {
+        batchContext.getFindBatch("sessions")
+                .findOne(uniqueId(session), new SingleResultCallback<Document>() {
                     @Override
                     public void onResult(Document document, Throwable throwable) {
                         if(throwable!=null)
@@ -193,21 +195,17 @@ public class MongoClientDetailsStore {
                             callback.onResult(null , new FailReason(MongoFailReasonsCodes.RUNTIME_EXCEPTION));
                         }else if(document==null)
                         {
-                            callback.onResult("0" , null);
+                            callback.onResult(null , new FailReason(MongoFailReasonsCodes.SESSION_NOT_EXISTS));
                         }else {
-                            callback.onResult(
-                                    (String) document.getOrDefault("offset" , "0") ,
-                                    null
-                            );
+                            callback.onResult( document.getString("offset") , null);
                         }
                     }
-                }
-        );
+                });
     }
 
     public void setMessageOffset(Session session , String offset , OperationResultListener<Boolean> callback)
     {
-        batchContext.getUpdateBatch("offset").updateOne(
+        batchContext.getUpdateBatch("sessions").updateOne(
                 and(eq("client" , session.clientId()),
                         eq("session" , session.id())),
                 set("offset" , offset) ,
@@ -224,117 +222,6 @@ public class MongoClientDetailsStore {
         );
     }
 
-
-    @Deprecated
-    void storeMessageZeroOffset(PubMessage message)
-    {
-        if (true && message.type().isNot(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
-
-            String conversation = StaticFunctions.relatedConversation(message);
-            List<Document> list = null;
-
-            if(message.type().is(PubMessage.Type.CLIENT_TO_CLIENT)) {
-                list = Arrays.asList(
-                        new Document().append("client", message.publisher().client())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l),
-                        new Document().append("client", message.recipient().client())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l)
-                );
-            }else
-            {
-                //SESSION_TO_SESSION :)))
-                list = Arrays.asList(
-                        new Document().append("client", message.publisher().client())
-                                .append("session" , message.publisher().session())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l),
-                        new Document().append("client", message.recipient().client())
-                                .append("session" , message.recipient().session())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l)
-                );
-            }
-
-            clientOffsetStoreCollection.insertMany(list, new SingleResultCallback<InsertManyResult>() {
-                @Override
-                public void onResult(InsertManyResult insertManyResult, Throwable throwable) {
-
-                }
-            });
-        }
-
-    }
-
-
-    @Deprecated
-    void storeMessageZeroOffset(Session publisher ,
-                                Recipient recipient ,
-                                PubMessage.Type type ,
-                                SingleResultCallback<InsertManyResult> callback) {
-
-        if (type.isNot(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
-
-            String conversation = StaticFunctions.relatedConversation(publisher, recipient, type);
-            List<Document> list = null;
-
-            if (type.is(PubMessage.Type.CLIENT_TO_CLIENT)) {
-                list = Arrays.asList(
-                        new Document().append("client", publisher.clientId())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l),
-                        new Document().append("client", recipient.client())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l)
-                );
-            } else {
-                //SESSION_TO_SESSION :)))
-                list = Arrays.asList(
-                        new Document().append("client", publisher.clientId())
-                                .append("session", publisher.id())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l),
-                        new Document().append("client", recipient.client())
-                                .append("session", recipient.session())
-                                .append("conversation", conversation)
-                                .append("MAX", 0l)
-                );
-            }
-
-            clientOffsetStoreCollection.insertMany(list, callback);
-        }
-    }
-
-
-
-    private final static UpdateOptions WITH_UPSERT = new UpdateOptions()
-            .upsert(true);
-
-
-    @Deprecated
-    void storeMessageOffset(Session session ,
-                            boolean justThisSession ,
-                            String conversation ,
-                            long messageIndex ,
-                            SingleResultCallback<UpdateResult> callback){
-
-        Bson filter = and(eq("client" , session.clientId()) ,
-                eq("conversation" , conversation));
-
-        Bson update = setOnInsert("MAX" , messageIndex);
-
-        if(justThisSession)
-        {
-            update = combine(update , setOnInsert("session" , session.id()));
-        }else {
-            update = combine(update , unset("session"));
-        }
-
-
-        clientOffsetStoreCollection.updateOne(filter , update , WITH_UPSERT , callback);
-
-    }
 
 
     public void addRelation(Session session , Recipient recipient , String key , String value , SingleResultCallback<Void> callback)

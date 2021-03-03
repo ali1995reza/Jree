@@ -6,6 +6,7 @@ import com.mongodb.connection.SocketSettings;
 import jree.api.*;
 import jree.mongo_base.MongoPubSubSystem;
 import jree.mongo_base.RecipientImpl;
+import org.checkerframework.checker.units.qual.C;
 import sun.security.x509.FreshestCRLExtension;
 
 import java.util.concurrent.CountDownLatch;
@@ -124,7 +125,7 @@ public class Test {
 
         @Override
         public void onFailed(FailReason reason) {
-
+            reason.printStackTrace();
         }
 
         public final void await() throws InterruptedException {
@@ -160,8 +161,8 @@ public class Test {
         System.out.println("WTF?");*/
 
 
-        Session<String , String> session1_2 = mongoPubSubSystem.sessionManager()
-                .connectToService(2, 1, new RelationController() {
+        Session<String , String> session2_x = mongoPubSubSystem.sessionManager()
+                .connectToService(2, 352769144404158876l, new RelationController() {
                     @Override
                     public boolean validatePublishMessage(Relation relation) {
                         if(relation.setByClient(2).get("Block")!=null)
@@ -169,18 +170,25 @@ public class Test {
 
                         return true;
                     }
-                } , new MyEventListener("1"));
+                } , new EMPTYLISTENER());
 
-        session1_2.setRelationProperties(RecipientImpl.clientRecipient(1) , "Block" , "TRUE");
+        //session2_x.setRelationProperties(RecipientImpl.clientRecipient(1) , "Block" , "TRUE");
 
-        PubMessage message = session1_2.publishMessage(
-                RecipientImpl.clientRecipient(1) ,
-                "EHllo world"
-        );
+        CounterOPListener listener = new CounterOPListener(1000000);
 
+        long s = System.currentTimeMillis();
+        for(int i=0;i<1000000;i++)
+        {
+            session2_x.publishMessage(
+                    RecipientImpl.clientRecipient(1) ,
+                    "EHllo world" ,
+                listener
+            );
+        }
 
-        System.out.println(message);
+        listener.await();
 
+        System.out.println(System.currentTimeMillis()-s);
 
         Thread.sleep(1000000);
     }

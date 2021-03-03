@@ -27,16 +27,18 @@ public class MongoSessionManager<T> implements SessionManager<T, String> {
 
     @Override
     public void createClient(long id, OperationResultListener<Boolean> callback) {
-        detailsStore.addClient(id, new SingleResultCallback<UpdateResult>() {
+        detailsStore.addClient(id, new SingleResultCallback<Boolean>() {
             @Override
-            public void onResult(UpdateResult updateResult, Throwable throwable) {
+            public void onResult(Boolean upsert, Throwable throwable) {
                 if (throwable != null) {
                     callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
                 } else {
-                    if (updateResult.getMatchedCount() > 0) {
-                        callback.onFailed(new FailReason(MongoFailReasonsCodes.CLIENT_ALREADY_EXISTS));
-                    } else {
+                    if (upsert) {
+
                         callback.onSuccess(true);
+                    } else {
+
+                        callback.onFailed(new FailReason(MongoFailReasonsCodes.CLIENT_ALREADY_EXISTS));
                     }
                 }
             }
@@ -187,7 +189,7 @@ public class MongoSessionManager<T> implements SessionManager<T, String> {
         return holder.findSessionById(sessionId);
     }
 
-    private final class RandomClientIdGenerator implements SingleResultCallback<UpdateResult> {
+    private final class RandomClientIdGenerator implements SingleResultCallback<Boolean> {
 
         private final OperationResultListener<Long> callback;
         private long id;
@@ -198,11 +200,11 @@ public class MongoSessionManager<T> implements SessionManager<T, String> {
         }
 
         @Override
-        public void onResult(UpdateResult updateResult, Throwable throwable) {
+        public void onResult(Boolean result, Throwable throwable) {
             if (throwable != null) {
                 callback.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
             } else {
-                if (updateResult.getMatchedCount() > 0) {
+                if (!result) {
                     id = StaticFunctions.newID();
                     detailsStore.addClient(
                             id,

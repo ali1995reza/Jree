@@ -34,7 +34,6 @@ public class RelationAndExistenceCache {
                     @Override
                     public void resolve(String key, OperationResultListener<Boolean> valueListener) {
 
-
                         String[] split = key.split("_");
                         long c = Long.parseLong(split[0]);
 

@@ -39,7 +39,7 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
         }
 
         private void batchListener(SingleResultCallback<Document> listener) {
-            if (listener instanceof SingleResultCallback) {
+            if (this.listener instanceof SingleResultCallback) {
                 List list = new ArrayList(5);
                 list.add(this.listener);
                 list.add(listener);
@@ -65,6 +65,7 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
         }
 
         private void executeWithResult(Object t) {
+
             if (listener instanceof SingleResultCallback) {
                 SingleResultCallback callback = ((SingleResultCallback) listener);
                 callback.onResult(t, null);
@@ -89,7 +90,6 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
 
         @Override
         public void apply(Document document) {
-            System.out.println(document);
             T id = (T) document.get(ID);
             AsyncFindByIdModel<T> model = index.remove(id);
             if (model == null)
@@ -139,8 +139,11 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
             return true;
 
         } else {
-            batchIndex.put(asyncFindByIdModel.id, asyncFindByIdModel);
-            return super.addToBatch(asyncFindByIdModel, batch);
+            if(super.addToBatch(asyncFindByIdModel, batch)){
+                batchIndex.put(asyncFindByIdModel.id, asyncFindByIdModel);
+                return true;
+            }
+            return false;
         }
 
     }
