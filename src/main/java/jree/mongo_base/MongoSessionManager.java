@@ -14,6 +14,7 @@ public class MongoSessionManager<T> implements SessionManager<T, String> {
     private final ClientsHolder clients;
     private final ConversationSubscribersHolder<T> subscribers;
     private final BodySerializer<T> serializer;
+    private final RelationAndExistenceCache cache;
 
     public MongoSessionManager(MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder clients, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer) {
         this.messageStore = messageStore;
@@ -21,6 +22,7 @@ public class MongoSessionManager<T> implements SessionManager<T, String> {
         this.clients = clients;
         this.subscribers = subscribers;
         this.serializer = serializer;
+        this.cache = new RelationAndExistenceCache(detailsStore);
     }
 
     @Override
@@ -113,7 +115,7 @@ public class MongoSessionManager<T> implements SessionManager<T, String> {
                                     clients,
                                     subscribers,
                                     serializer,
-                                    controller);
+                                    controller, cache);
                             clients.addNewSession(session);
 
                             detailsStore.getSessionOffset(session, new SingleResultCallback<String>() {

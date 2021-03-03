@@ -84,7 +84,7 @@ public class MongoClientDetailsStore {
 
     public void addClient(long client , SingleResultCallback<UpdateResult> result)
     {
-        clientsDetailsStoreCollection
+        batchContext.getUpdateBatch("details")
                 .updateOne(eq("client" , client) ,
                         set("client" , client) ,
                         new UpdateOptions().upsert(true) ,
@@ -348,6 +348,7 @@ public class MongoClientDetailsStore {
                         eq("_id" , id),
                         set("CL_".concat(String.valueOf(session.clientId())).concat(".").concat(key) ,
                                 value) ,
+                        new UpdateOptions().upsert(true) ,
                         callback
                 );
     }
@@ -357,36 +358,31 @@ public class MongoClientDetailsStore {
                 .findOne(conversationId, new SingleResultCallback<Document>() {
                     @Override
                     public void onResult(Document document, Throwable throwable) {
-
-                        if(throwable!=null)
-                        {
-                            result.onFailed(new FailReason(throwable , MongoFailReasonsCodes.RUNTIME_EXCEPTION));
+                        if (throwable != null) {
+                            result.onFailed(new FailReason(throwable, MongoFailReasonsCodes.RUNTIME_EXCEPTION));
                             return;
                         }
 
-                        if(document==null)
-                        {
+                        if (document == null) {
                             result.onSuccess(Relation.EMPTY);
                             return;
                         }
 
                         MongoRelation.Holder a = null;
                         MongoRelation.Holder b = null;
-                        for(String key:document.keySet())
-                        {
-                            if(key.startsWith("CL")){
+                        for (String key : document.keySet()) {
+                            if (key.startsWith("CL")) {
                                 long id = Long.parseLong(key.split("_")[1]);
-                                Map<String,String> map = (Map<String, String>) document.get(key);
-                                a = MongoRelation.Holder.clientHolder(id , map);
-                            }else if(key.startsWith("C"))
-                            {
+                                Map<String, String> map = (Map<String, String>) document.get(key);
+                                a = MongoRelation.Holder.clientHolder(id, map);
+                            } else if (key.startsWith("C")) {
                                 long id = Long.parseLong(key.split("_")[1]);
-                                Map<String,String> map = (Map<String, String>) document.get(key);
-                                b = MongoRelation.Holder.conversationHolder(id , map);
+                                Map<String, String> map = (Map<String, String>) document.get(key);
+                                b = MongoRelation.Holder.conversationHolder(id, map);
                             }
                         }
 
-                        result.onSuccess(new MongoRelation(a,b));
+                        result.onSuccess(new MongoRelation(a, b));
                     }
                 });
     }

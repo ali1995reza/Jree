@@ -49,14 +49,14 @@ public class BatchContext {
 
     public synchronized <T> FindByIdBatch<T> createNewFindBatch(String name , AsyncMongoCollection<Document> collection , int size , int timeout)
     {
-        if(updateBatches.containsKey(name))
+        if(findBatches.containsKey(name))
             throw new IllegalStateException("this batch already exists");
 
-        FindByIdBatch<T> updateBatch = new FindByIdBatch<>(collection , executorService  , size , timeout);
+        FindByIdBatch<T> findBatch = new FindByIdBatch<>(collection , executorService  , size , timeout);
 
-        findBatches.put(name , updateBatch);
+        findBatches.put(name , findBatch);
 
-        return updateBatch;
+        return findBatch;
     }
 
     public UpdateBatch getUpdateBatch(String name)

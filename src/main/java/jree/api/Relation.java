@@ -15,6 +15,11 @@ public interface Relation {
         public Map<String, String> setByConversation(long conversationId) {
             return Collections.emptyMap();
         }
+
+        @Override
+        public String toString() {
+            return "EMPTY_RELATION";
+        }
     };
 
 

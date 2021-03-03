@@ -89,8 +89,9 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
 
         @Override
         public void apply(Document document) {
-            T t = (T) document.get(ID);
-            AsyncFindByIdModel<T> model = batchIndex.remove(t);
+            System.out.println(document);
+            T id = (T) document.get(ID);
+            AsyncFindByIdModel<T> model = index.remove(id);
             if (model == null)
                 return;
             model.executeWithResult(document);
@@ -113,6 +114,7 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
 
 
     private Map<T, AsyncFindByIdModel<T>> batchIndex;
+    private Map<T, AsyncFindByIdModel<T>> capturedIndex;
     private final AsyncMongoCollection<Document> collection;
 
     public FindByIdBatch(AsyncMongoCollection<Document> collection, ScheduledExecutorService service, int batchSize, long timeOut) {
@@ -123,6 +125,7 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
 
     @Override
     public void constructBatch(int size) {
+        capturedIndex = batchIndex;
         batchIndex = new HashMap<>(size);
         super.constructBatch(size);
     }
@@ -150,7 +153,7 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
     @Override
     public void executeBatch(List<AsyncFindByIdModel<T>> batch) {
         List<T> ids = new ConverterList<>(batch, CONVERTER);
-        BatchCallbackHandler handler = new BatchCallbackHandler(batchIndex);
+        BatchCallbackHandler handler = new BatchCallbackHandler(capturedIndex);
         collection.find(in(ID, ids)).forEach(handler, handler);
     }
 }

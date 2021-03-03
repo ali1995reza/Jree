@@ -22,11 +22,12 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T, Stri
     private final BodySerializer<T> serializer;
     private final RelationController<T, String> controller;
     private List<PubMessage> pubMessages = new ArrayList<>();
+    private final RelationAndExistenceCache cache;
     private boolean closed;
     private Object _sync = new Object();
 
 
-    public MongoSession(long clientId, long sessionId, SessionEventListener listener, MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder holder, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer, RelationController<T, String> controller) {
+    public MongoSession(long clientId, long sessionId, SessionEventListener listener, MongoMessageStore messageStore, MongoClientDetailsStore detailsStore, ClientsHolder holder, ConversationSubscribersHolder<T> subscribers, BodySerializer<T> serializer, RelationController<T, String> controller, RelationAndExistenceCache cache) {
         this.clientId = clientId;
         this.sessionId = sessionId;
         this.listener = listener;
@@ -36,6 +37,7 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T, Stri
         this.subscribers = subscribers;
         this.serializer = serializer;
         this.controller = controller;
+        this.cache = cache;
     }
 
 
@@ -72,19 +74,44 @@ public class MongoSession<T> extends SimpleAttachable implements Session<T, Stri
     public void publishMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T, String>> callback) {
         assertIfClosed();
         //check relation and then publish message
-        Assertion.ifTrue("relation did'nt let publish message",
-                controller.validatePublishMessage(Relation.EMPTY));
-        messageStore.storeMessage(this,
-                recipient, message, serializer,
-                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage<T, String>>>()
-                        .attach(callback)
-                        .ifSuccess(this::onPublishedMessageStoredSuccessfully)
-                        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage<T, String>>>() {
-                            @Override
-                            public void accept(FailReason failReason, OperationResultListener<PubMessage<T, String>> pubMessageOperationResultListener) {
-                                callback.onFailed(failReason);
+        cache.getRelationFor(
+                this, recipient, new OperationResultListener<Relation>() {
+                    @Override
+                    public void onSuccess(Relation relation) {
+                        try {
+                            if (!controller.validatePublishMessage(relation))
+                            {
+                                callback.onFailed(new FailReason(new IllegalStateException("relation failed") ,
+                                        RUNTIME_EXCEPTION));
+                                return;
                             }
-                        }));
+                        }catch (Throwable e)
+                        {
+                            callback.onFailed(new FailReason(e , RUNTIME_EXCEPTION));
+                            return;
+                        }
+
+                        messageStore.storeMessage(MongoSession.this,
+                                recipient, message, serializer,
+                                new ConditionOperationResultListener<PubMessage, OperationResultListener<PubMessage<T, String>>>()
+                                        .attach(callback)
+                                        .ifSuccess(MongoSession.this::onPublishedMessageStoredSuccessfully)
+                                        .ifFail(new BiConsumer<FailReason, OperationResultListener<PubMessage<T, String>>>() {
+                                            @Override
+                                            public void accept(FailReason failReason, OperationResultListener<PubMessage<T, String>> pubMessageOperationResultListener) {
+                                                callback.onFailed(failReason);
+                                            }
+                                        }));
+
+                    }
+
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                }
+        );
+
     }
 
     @Override

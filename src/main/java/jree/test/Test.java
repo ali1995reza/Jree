@@ -6,6 +6,7 @@ import com.mongodb.connection.SocketSettings;
 import jree.api.*;
 import jree.mongo_base.MongoPubSubSystem;
 import jree.mongo_base.RecipientImpl;
+import sun.security.x509.FreshestCRLExtension;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -163,13 +164,22 @@ public class Test {
                 .connectToService(2, 1, new RelationController() {
                     @Override
                     public boolean validatePublishMessage(Relation relation) {
+                        if(relation.setByClient(2).get("Block")!=null)
+                            return false;
+
                         return true;
                     }
                 } , new MyEventListener("1"));
 
+        session1_2.setRelationProperties(RecipientImpl.clientRecipient(1) , "Block" , "TRUE");
+
+        PubMessage message = session1_2.publishMessage(
+                RecipientImpl.clientRecipient(1) ,
+                "EHllo world"
+        );
 
 
-        //System.out.println(message);
+        System.out.println(message);
 
 
         Thread.sleep(1000000);

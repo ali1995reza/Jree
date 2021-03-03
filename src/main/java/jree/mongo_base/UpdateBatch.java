@@ -45,7 +45,8 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
         private int retries;
 
         private BatchCallbackHandler(List<AsyncUpdateModel> batch,
-                                     List<WriteModel<Document>> writeModels, AsyncMongoCollection<Document> collection,
+                                     List<WriteModel<Document>> writeModels,
+                                     AsyncMongoCollection<Document> collection,
                                      int retries) {
             this.batch = batch;
             this.writeModels = writeModels;
@@ -68,12 +69,12 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
                 }
                 for(AsyncUpdateModel m:batch)
                 {
-                    m.callback.onResult(null , null);
+                    m.callback.onResult(null , throwable);
                 }
             }else {
                 for(AsyncUpdateModel m:batch)
                 {
-                    m.callback.onResult(null , throwable);
+                    m.callback.onResult(null , null);
                 }
             }
         }
