@@ -1,8 +1,7 @@
 package jree.test;
 
 import com.mongodb.internal.async.SingleResultCallback;
-import jree.mongo_base.IDBuilder;
-import org.bson.types.ObjectId;
+import jree.abs.utils.StringIDBuilder;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
@@ -64,7 +63,7 @@ public class Tested {
     public static void main(String[] args)
     {
         
-        IDBuilder builder = new IDBuilder(24566, System::currentTimeMillis);
+        StringIDBuilder builder = new StringIDBuilder(24566, System::currentTimeMillis);
 
         runAndTick(new Runnable() {
             @Override

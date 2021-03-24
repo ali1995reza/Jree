@@ -27,15 +27,15 @@ public interface Session<T , ID> extends Attachable {
 
     void addTag(Recipient recipient, InsertTag tag, OperationResultListener<Tag> result);
 
-    Tag addTag(Recipient recipient, InsertTag tag);
+    Tag addTag(Recipient recipient, InsertTag<ID> tag);
 
     void setMessageOffset(ID offset, OperationResultListener<Boolean> callback);
 
     boolean setMessageOffset(ID offset);
 
-    void subscribe(Subscribe subscribes, OperationResultListener<Boolean> result);
+    void subscribe(long conversation, OperationResultListener<Boolean> result);
 
-    boolean subscribe(Subscribe subscribes);
+    boolean subscribe(long conversation);
 
     void unsubscribe(long conversations, OperationResultListener<Boolean> result);
 

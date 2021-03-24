@@ -2,7 +2,6 @@ package jree.test;
 
 import com.mongodb.Block;
 import com.mongodb.MongoClientSettings;
-import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.internal.async.SingleResultCallback;
@@ -10,18 +9,9 @@ import com.mongodb.internal.async.client.AsyncMongoClient;
 import com.mongodb.internal.async.client.AsyncMongoClients;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
-import jree.api.OperationResultListener;
-import jree.mongo_base.H2ConnectionPool;
 import org.bson.Document;
-import org.bson.types.ObjectId;
-import org.checkerframework.checker.units.qual.C;
 
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
-import java.util.logging.Filter;
 
 public class JDBCTest {
 

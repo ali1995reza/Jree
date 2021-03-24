@@ -4,7 +4,7 @@ import com.mongodb.internal.async.SingleResultCallback;
 
 import java.util.concurrent.CountDownLatch;
 
-public class SyncSingleResultCallback<T> implements SingleResultCallback<T> {
+final class SyncSingleResultCallback<T> implements SingleResultCallback<T> {
 
     private T result;
     private Throwable error;

@@ -6,7 +6,7 @@ import jree.util.Assertion;
 import java.time.Instant;
 import java.util.List;
 
-public interface PubMessage<T , ID> extends Attachable {
+public interface PubMessage<BODY , ID> extends Attachable {
 
     enum Type{
         SESSION_TO_SESSION(1), CLIENT_TO_CLIENT(2), CLIENT_TO_CONVERSATION(3);
@@ -48,7 +48,7 @@ public interface PubMessage<T , ID> extends Attachable {
 
     ID id();
 
-    T body();
+    BODY body();
 
     Instant time();
 

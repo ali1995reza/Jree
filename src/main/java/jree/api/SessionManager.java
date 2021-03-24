@@ -20,11 +20,9 @@ public interface SessionManager<T, ID> {
 
     long createSession(long clientId);
 
-    void connectToService(long clientId, long sessionId, RelationController<T, ID> controller, SessionEventListener<T, ID> eventListener, OperationResultListener<Session<T, ID>> callback);
+    void openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<T, ID> eventListener, OperationResultListener<Session<T, ID>> callback);
 
-    Session<T, ID> connectToService(long clientId, long sessionId, RelationController<T, ID> controller, SessionEventListener<T, ID> eventListener);
-
-    boolean disconnectFromService(Session<T, ID> session);
+    Session<T, ID> openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<T, ID> eventListener);
 
     void checkPresence(List<Long> ids, OperationResultListener<List<Presence>> callback);
 

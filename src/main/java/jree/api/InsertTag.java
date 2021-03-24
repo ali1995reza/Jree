@@ -45,4 +45,11 @@ public final class InsertTag<ID> {
     public String name() {
         return name;
     }
+
+    @Override
+    public String toString() {
+        return "InsertTag{" + "name='" + name + '\'' + ", value='" + value + '\'' + ", from=" + from + ", to=" + to +
+                '}';
+    }
+
 }
