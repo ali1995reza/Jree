@@ -1,8 +1,13 @@
 package jree.abs.objects;
 
 import jree.api.Publisher;
+import jree.api.Session;
 
 public class PublisherImpl implements Publisher {
+
+    public static Publisher fromSession(Session session){
+        return new PublisherImpl(session.clientId() , session.id());
+    }
 
     private final long client;
     private final long session;

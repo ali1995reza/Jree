@@ -43,6 +43,11 @@ public class Test {
         }
 
         @Override
+        public void onSignalReceived(SessionContext context, Signal<String> signal) {
+
+        }
+
+        @Override
         public void preInitialize(SessionContext context) {
 
         }
@@ -68,6 +73,11 @@ public class Test {
 
         @Override
         public void onMessagePublished(SessionContext context, PubMessage message) {
+
+        }
+
+        @Override
+        public void onSignalReceived(SessionContext context, Signal signal) {
 
         }
 

@@ -1,7 +1,7 @@
 package jree.api;
 
 
-public interface Session<T , ID> extends Attachable {
+public interface Session<BODY, ID> extends Attachable {
 
     long clientId();
 
@@ -9,21 +9,21 @@ public interface Session<T , ID> extends Attachable {
 
     void close();
 
-    void publishMessage(Recipient recipient, T message, OperationResultListener<PubMessage<T ,ID>> result);
+    void publishMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY,ID>> result);
 
-    PubMessage<T , ID> publishMessage(Recipient recipient, T message);
+    PubMessage<BODY, ID> publishMessage(Recipient recipient, BODY message);
 
-    void editMessage(Recipient recipient , ID messageId , T newMessage , OperationResultListener<PubMessage<T , ID>> result);
+    void editMessage(Recipient recipient , ID messageId , BODY newMessage , OperationResultListener<PubMessage<BODY, ID>> result);
 
-    PubMessage<T , ID> editMessage(Recipient recipient , ID messageId , T newMessage);
+    PubMessage<BODY, ID> editMessage(Recipient recipient , ID messageId , BODY newMessage);
 
-    void removeMessage(Recipient recipient , ID messageId , OperationResultListener<PubMessage<T , ID>> result);
+    void removeMessage(Recipient recipient , ID messageId , OperationResultListener<PubMessage<BODY, ID>> result);
 
-    PubMessage<T , ID> removeMessage(Recipient recipient , ID messageId);
+    PubMessage<BODY, ID> removeMessage(Recipient recipient , ID messageId);
 
-    void publishDisposableMessage(Recipient recipient , T message ,OperationResultListener<PubMessage<T , ID>> result);
+    void publishDisposableMessage(Recipient recipient , BODY message , OperationResultListener<PubMessage<BODY, ID>> result);
 
-    PubMessage<T , ID> publishDisposableMessage(Recipient recipient , T message);
+    PubMessage<BODY, ID> publishDisposableMessage(Recipient recipient , BODY message);
 
     void addTag(Recipient recipient, InsertTag tag, OperationResultListener<Tag> result);
 
@@ -44,5 +44,10 @@ public interface Session<T , ID> extends Attachable {
     void setRelationProperties(Recipient recipient , String key , String value , OperationResultListener<Boolean> result);
 
     boolean setRelationProperties(Recipient recipient , String key , String value );
+
+    void sendSignal(Recipient recipient ,  BODY signal , OperationResultListener<Signal<BODY>> callback);
+
+    Signal<BODY> sendSignal(Recipient recipient ,  BODY signal);
+
 
 }

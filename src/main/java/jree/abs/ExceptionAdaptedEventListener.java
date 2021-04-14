@@ -2,26 +2,36 @@ package jree.abs;
 
 import jree.api.PubMessage;
 import jree.api.SessionContext;
+import jree.api.Signal;
 import jree.util.Assertion;
 import jree.api.SessionEventListener;
 
-final class ExceptionAdaptedEventListener<T , ID> implements SessionEventListener<T , ID> {
+final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListener<BODY, ID> {
 
 
-    private final SessionEventListener<T , ID> wrapped;
+    private final SessionEventListener<BODY, ID> wrapped;
 
-    public ExceptionAdaptedEventListener(SessionEventListener<T , ID> wrapped) {
+    public ExceptionAdaptedEventListener(SessionEventListener<BODY, ID> wrapped) {
         Assertion.ifNull("listener is null" , wrapped);
         this.wrapped = wrapped;
     }
 
 
     @Override
-    public void onMessagePublished(SessionContext context, PubMessage<T , ID> message) {
+    public void onMessagePublished(SessionContext context, PubMessage<BODY, ID> message) {
         try{
             wrapped.onMessagePublished(context, message);
         }catch (Throwable e)
         {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onSignalReceived(SessionContext context, Signal<BODY> signal) {
+        try {
+            wrapped.onSignalReceived(context, signal);
+        }catch (Throwable e){
             e.printStackTrace();
         }
     }

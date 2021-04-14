@@ -1,10 +1,7 @@
 package jree.abs;
 
 import jree.abs.utils.H2ConnectionPool;
-import jree.api.FailReason;
-import jree.api.OperationResultListener;
-import jree.api.PubMessage;
-import jree.api.Session;
+import jree.api.*;
 import jree.util.Assertion;
 
 import java.sql.ResultSet;
@@ -173,21 +170,18 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
                     ResultSet set = result.getResultSet();
                     while (set.next())
                     {
-                        long client = set.getLong(1);
-                        long session = set.getLong(2);
+                        long clientId = set.getLong(1);
+                        long sessionId = set.getLong(2);
                         SessionsHolder sessionsHolder =
-                                clients.getSessionsForClient(client);
+                                clients.getSessionsForClient(clientId);
                         if(sessionsHolder==null)
                             continue;
-                        SessionImpl<BODY, ID> mongoSession = sessionsHolder.findSessionById(session);
+                        SessionImpl<BODY, ID> session = sessionsHolder.findSessionById(sessionId);
 
-                        if(mongoSession==null)
+                        if(session==null)
                             continue;
 
-                        publishMessageToSubscribers(
-                                mongoSession ,
-                                pubMessage
-                        );
+                        session.onMessagePublished(pubMessage);
                     }
                 } catch (SQLException e) {
                     //todo handle it
@@ -201,6 +195,47 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
         });
         return this;
     }
+
+    public ConversationSubscribersHolder<BODY, ID> sendSignal(
+            Signal<BODY> signal
+    ){
+        Assertion.ifTrue("recipient not a conversation" , signal.recipient().conversation()<0);
+
+        String sql = queryBaseString+signal.recipient().conversation();
+
+        subscribersDatabase.execute(sql, new OperationResultListener<Statement>() {
+            @Override
+            public void onSuccess(Statement result) {
+                try {
+                    ResultSet set = result.getResultSet();
+                    while (set.next())
+                    {
+                        long clientId = set.getLong(1);
+                        long sessionId = set.getLong(2);
+                        SessionsHolder sessionsHolder =
+                                clients.getSessionsForClient(clientId);
+                        if(sessionsHolder==null)
+                            continue;
+                        SessionImpl<BODY, ID> session = sessionsHolder.findSessionById(sessionId);
+
+                        if(session==null)
+                            continue;
+
+                        session.onSignalReceived(signal);
+                    }
+                } catch (SQLException e) {
+                    //todo handle it
+                }
+            }
+
+            @Override
+            public void onFailed(FailReason reason) {
+                onFailed(reason);
+            }
+        });
+        return this;
+    }
+
 
     public ConversationSubscribersHolder<BODY, ID> remove(SessionImpl session ,
                                                    OperationResultListener<Boolean> callback) {
@@ -220,11 +255,6 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
         return this;
     }
 
-
-    private final void publishMessageToSubscribers(SessionImpl<BODY, ID> session , PubMessage<BODY, ID> message)
-    {
-        session.onMessagePublished(message);
-    }
 
 
 

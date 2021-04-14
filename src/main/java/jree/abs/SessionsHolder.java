@@ -1,6 +1,7 @@
 package jree.abs;
 
 import jree.api.PubMessage;
+import jree.api.Signal;
 
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,6 +52,13 @@ final class SessionsHolder {
             {
                 session.onMessagePublished(message);
             }
+        }
+    }
+
+    public void sendSignal(Signal signal){
+        for(SessionImpl session:sessions.values())
+        {
+            session.onSignalReceived(signal);
         }
     }
 

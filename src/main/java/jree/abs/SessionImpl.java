@@ -3,6 +3,7 @@ package jree.abs;
 import jree.abs.cache.RelationAndExistenceCache;
 import jree.abs.funcs.AsyncToSync;
 import jree.abs.objects.PubMessageImpl;
+import jree.abs.objects.SignalImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
 import jree.abs.parts.MessageStore;
@@ -63,7 +64,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         if (message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
             subscribers.publishMessage(message);
             callback.onSuccess(message);
-        } else {
+        } else if(message.type().is(PubMessage.Type.CLIENT_TO_CLIENT)) {
             SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
             if (sessionsHolder != null) {
                 sessionsHolder.publishMessage(message);
@@ -73,6 +74,38 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
                 sessionsHolder.publishMessage(message);
             }
             callback.onSuccess(message);
+        } else {
+            SessionsHolder sessionsHolder = holder.getSessionsForClient(message.recipient().client());
+            if (sessionsHolder != null) {
+                SessionImpl session = sessionsHolder.findSessionById(message.recipient().session());
+                if(session!=null)
+                    session.onMessagePublished(message);
+            }
+            onMessagePublished(message);
+
+            callback.onSuccess(message);
+        }
+    }
+
+    private void onSignalPublished(Signal<BODY> signal, OperationResultListener<Signal<BODY>> callback) {
+        if (signal.recipient().conversation()>0) {
+            subscribers.sendSignal(signal);
+            callback.onSuccess(signal);
+        } else if(signal.recipient().session()<0) {
+            SessionsHolder sessionsHolder = holder.getSessionsForClient(signal.recipient().client());
+            if (sessionsHolder != null) {
+                sessionsHolder.sendSignal(signal);
+            }
+            callback.onSuccess(signal);
+        } else {
+            SessionsHolder sessionsHolder = holder.getSessionsForClient(signal.recipient().client());
+            if (sessionsHolder != null) {
+                SessionImpl session = sessionsHolder.findSessionById(signal.recipient().session());
+                if(session!=null)
+                    session.onSignalReceived(signal);
+            }
+
+            callback.onSuccess(signal);
         }
     }
 
@@ -286,6 +319,39 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         return asyncToSync.getResult();
     }
 
+    @Override
+    public void sendSignal(Recipient recipient, BODY sig, OperationResultListener<Signal<BODY>> callback) {
+        assertIfClosed();
+        cache.getRelation(this, recipient, new OperationResultListener<Relation>() {
+            @Override
+            public void onSuccess(Relation relation) {
+                try {
+                    if (!controller.validatePublishMessage(relation)) {
+                        callback.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
+                        return;
+                    }
+                } catch (Throwable e) {
+                    callback.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
+                    return;
+                }
+                Signal<BODY> signal = new SignalImpl<>(sig , SessionImpl.this , recipient);
+                onSignalPublished(signal , callback);
+            }
+
+            @Override
+            public void onFailed(FailReason reason) {
+                callback.onFailed(reason);
+            }
+        });
+    }
+
+    @Override
+    public Signal<BODY> sendSignal(Recipient recipient, BODY signal) {
+        AsyncToSync<Signal<BODY>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        sendSignal(recipient , signal ,asyncToSync);
+        return asyncToSync.getResult();
+    }
+
     public void onMessagePublished(PubMessage message) {
         if (pubMessages != null) {
             synchronized (pubMessages) {
@@ -298,6 +364,10 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         } else {
             listener.onMessagePublished(this, message);
         }
+    }
+
+    public void onSignalReceived(Signal<BODY> signal) {
+        listener.onSignalReceived(this , signal);
     }
 
     void beforeRelease(PubMessage message) {

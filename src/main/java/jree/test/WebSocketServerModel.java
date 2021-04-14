@@ -110,6 +110,16 @@ public class WebSocketServerModel {
                             }
 
                             @Override
+                            public void onSignalReceived(SessionContext context, Signal<String> signal) {
+                                try{
+                                    user.getRemote().sendString(signal.toString());
+                                }catch (IOException e)
+                                {
+                                    e.printStackTrace();
+                                }
+                            }
+
+                            @Override
                             public void preInitialize(SessionContext context) {
                             }
 
@@ -135,6 +145,13 @@ public class WebSocketServerModel {
 
                 users.get(user)
                         .publishMessage(RecipientImpl.clientRecipient(recipientClient) ,
+                                message);
+            } else if(command.equalsIgnoreCase("signal")){
+                String message = jsonObject.getString("message");
+                long recipientClient = jsonObject.getLong("client");
+
+                users.get(user)
+                        .sendSignal(RecipientImpl.clientRecipient(recipientClient) ,
                                 message);
             }
         }

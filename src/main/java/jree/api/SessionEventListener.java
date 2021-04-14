@@ -1,8 +1,10 @@
 package jree.api;
 
-public interface SessionEventListener<T, ID> {
+public interface SessionEventListener<BODY, ID> {
 
-    void onMessagePublished(SessionContext context, PubMessage<T, ID> message);
+    void onMessagePublished(SessionContext context, PubMessage<BODY, ID> message);
+
+    void onSignalReceived(SessionContext context , Signal<BODY> signal);
 
     void preInitialize(SessionContext context);
 
