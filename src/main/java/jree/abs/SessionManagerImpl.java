@@ -1,14 +1,15 @@
 package jree.abs;
 
 import jree.abs.cache.RelationAndExistenceCache;
+import jree.abs.codes.FailReasonsCodes;
 import jree.abs.funcs.AsyncToSync;
 import jree.abs.funcs.ForEach;
+import jree.abs.objects.RecipientImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
 import jree.abs.parts.MessageStore;
 import jree.abs.utils.StaticFunctions;
 import jree.api.*;
-import jree.abs.codes.FailReasonsCodes;
 
 import java.util.List;
 
@@ -70,6 +71,40 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
     }
 
     @Override
+    public void removeClient(long id, OperationResultListener<Boolean> callback) {
+        //so lets first remove from store and then close active ones !
+        cache.isExists(RecipientImpl.clientRecipient(id),
+                new OperationResultListener<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean result) {
+                        detailsStore.removeClient(id,
+                                new OperationResultListener<Boolean>() {
+                                    @Override
+                                    public void onSuccess(Boolean result) {
+                                        //now just need to kill active sessions !
+                                    }
+
+                                    @Override
+                                    public void onFailed(FailReason reason) {
+                                    }
+                                });
+                    }
+
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
+    }
+
+    @Override
+    public boolean removeClient(long id) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        removeClient(id, asyncToSync);
+        return asyncToSync.getResult();
+    }
+
+    @Override
     public void createSession(long clientId, OperationResultListener<Long> callback) {
         detailsStore.addSessionToClient(clientId, callback);
     }
@@ -83,74 +118,108 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     @Override
     public void openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<BODY, ID> ev, OperationResultListener<Session<BODY, ID>> callback) {
-        if(!canAcceptSessions)
+        if (!canAcceptSessions)
             callback.onFailed(new FailReason(100000));
 
-        if(clients.isSessionAlive(clientId , sessionId))
+        if (clients.isSessionActive(clientId, sessionId))
             callback.onFailed(new FailReason(32132132));
 
-        final ExceptionAdaptedEventListener<BODY, ID> eventListener = new ExceptionAdaptedEventListener<>(ev);
+        final ExceptionAdaptedEventListener<BODY, ID> eventListener = new ExceptionAdaptedEventListener<>(
+                ev);
 
-        detailsStore.getSessionDetails(clientId, sessionId, new OperationResultListener<SessionDetails<ID>>() {
-            @Override
-            public void onSuccess(SessionDetails<ID> details) {
-                if(!details.isSessionExists()){
-                    callback.onFailed(new FailReason(FailReasonsCodes.SESSION_NOT_EXISTS));
-                }else {
-                    SessionImpl<BODY, ID> session = new SessionImpl<>(clientId, sessionId, eventListener, messageStore, detailsStore, clients, subscribers, controller, cache, idBuilder);
-                    eventListener.preInitialize(session);
-                    clients.addNewSession(session);
-                    subscribers.addSubscriber(details.subscribeList() , session , EMPTY_LISTENER);
-                    eventListener.onInitialized(session);
-                    messageStore.readStoredMessage(session, details.offset(), details.subscribeList(), new ForEach<PubMessage<BODY, ID>>() {
-                        @Override
-                        public void accept(PubMessage<BODY, ID> message) {
-                            session.beforeRelease(message);
+        detailsStore.getSessionDetails(clientId, sessionId,
+                new OperationResultListener<SessionDetails<ID>>() {
+                    @Override
+                    public void onSuccess(SessionDetails<ID> details) {
+                        if (!details.isSessionExists()) {
+                            callback.onFailed(new FailReason(
+                                    FailReasonsCodes.SESSION_NOT_EXISTS));
+                        } else {
+                            SessionImpl<BODY, ID> session = new SessionImpl<>(
+                                    clientId, sessionId, eventListener,
+                                    messageStore, detailsStore, clients,
+                                    subscribers, controller, cache, idBuilder);
+                            eventListener.preInitialize(session);
+                            clients.addNewSession(session);
+                            subscribers.addSubscriber(details.subscribeList(),
+                                    session, EMPTY_LISTENER);
+                            eventListener.onInitialized(session);
+                            messageStore.readStoredMessage(session,
+                                    details.offset(), details.subscribeList(),
+                                    new ForEach<PubMessage<BODY, ID>>() {
+                                        @Override
+                                        public void accept(PubMessage<BODY, ID> message) {
+                                            session.beforeRelease(message);
+                                        }
+
+                                        @Override
+                                        public void done(Throwable e) {
+                                            if (e != null) {
+                                                //so handle it
+                                                callback.onFailed(
+                                                        new FailReason(e,
+                                                                FailReasonsCodes.RUNTIME_EXCEPTION));
+                                                clients.removeSession(session);
+                                                eventListener.onClosedByException(
+                                                        session, e);
+                                            } else {
+                                                session.release();
+                                                callback.onSuccess(session);
+                                            }
+                                        }
+                                    });
                         }
+                    }
 
-                        @Override
-                        public void done(Throwable e) {
-                            if (e != null) {
-                                //so handle it
-                                callback.onFailed(new FailReason(e, FailReasonsCodes.RUNTIME_EXCEPTION));
-                                clients.removeSession(session);
-                                eventListener.onClosedByException(session , e);
-                            } else {
-                                session.release();
-                                callback.onSuccess(session);
-                            }
-                        }
-                    });
-                }
-            }
-
-            @Override
-            public void onFailed(FailReason reason) {
-                callback.onFailed(reason);
-            }
-        });
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
     }
 
     @Override
     public Session<BODY, ID> openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<BODY, ID> eventListener) {
         AsyncToSync<Session<BODY, ID>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
-        openSession(clientId, sessionId, controller, eventListener, asyncToSync);
+        openSession(clientId, sessionId, controller, eventListener,
+                asyncToSync);
         return asyncToSync.getResult();
     }
 
     @Override
-    public void checkPresence(List<Long> ids, OperationResultListener<List<Presence>> callback) {
+    public void removeSession(long clientId, long sessionId, OperationResultListener<Boolean> callback) {
+
+    }
+
+    @Override
+    public boolean removeSession(long clientId, long sessionId) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        removeSession(clientId, sessionId, asyncToSync);
+        return asyncToSync.getResult();
+    }
+
+    @Override
+    public void getPresence(List<Long> ids, OperationResultListener<List<Presence>> callback) {
+    }
+
+    @Override
+    public List<Presence> getPresence(List<Long> ids) {
+        AsyncToSync<List<Presence>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        getPresence(ids, asyncToSync);
+        return asyncToSync.getResult();
     }
 
     @Override
     public void getSession(long clientId, long sessionId, OperationResultListener<Session<BODY, ID>> callback) {
         SessionsHolder holder = clients.getSessionsForClient(clientId);
         if (holder == null) {
-            callback.onFailed(new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
+            callback.onFailed(
+                    new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
         }
         SessionImpl session = holder.findSessionById(sessionId);
         if (session == null) {
-            callback.onFailed(new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
+            callback.onFailed(
+                    new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
         }
         callback.onSuccess(session);
     }

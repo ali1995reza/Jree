@@ -10,6 +10,8 @@ public interface DetailsStore<ID> {
 
     void addClient(long client, OperationResultListener<Boolean> result);
 
+    void removeClient(long client, OperationResultListener<Boolean> callback);
+
     void addSessionToClient(long client, OperationResultListener<Long> callback);
 
     void isSessionExists(long client, long session, OperationResultListener<Boolean> callback);

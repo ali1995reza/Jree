@@ -2,7 +2,7 @@ package jree.api;
 
 import java.util.List;
 
-public interface SessionManager<T, ID> {
+public interface SessionManager<BODY, ID> {
 
     void createClient(long id, OperationResultListener<Boolean> callback);
 
@@ -16,18 +16,28 @@ public interface SessionManager<T, ID> {
 
     boolean createClientIfNotExists(long id);
 
+    void removeClient(long id, OperationResultListener<Boolean> callback);
+
+    boolean removeClient(long id);
+
     void createSession(long clientId, OperationResultListener<Long> callback);
 
     long createSession(long clientId);
 
-    void openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<T, ID> eventListener, OperationResultListener<Session<T, ID>> callback);
+    void openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<BODY, ID> eventListener, OperationResultListener<Session<BODY, ID>> callback);
 
-    Session<T, ID> openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<T, ID> eventListener);
+    Session<BODY, ID> openSession(long clientId, long sessionId, RelationController controller, SessionEventListener<BODY, ID> eventListener);
 
-    void checkPresence(List<Long> ids, OperationResultListener<List<Presence>> callback);
+    void removeSession(long clientId, long sessionId, OperationResultListener<Boolean> callback);
 
-    void getSession(long clientId, long sessionId, OperationResultListener<Session<T, ID>> callback);
+    boolean removeSession(long clientId, long sessionId);
 
-    Session<T, ID> getSession(long clientId, long sessionId);
+    void getPresence(List<Long> ids, OperationResultListener<List<Presence>> callback);
+
+    List<Presence> getPresence(List<Long> ids);
+
+    void getSession(long clientId, long sessionId, OperationResultListener<Session<BODY, ID>> callback);
+
+    Session<BODY, ID> getSession(long clientId, long sessionId);
 
 }

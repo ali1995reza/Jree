@@ -1,5 +1,7 @@
 package jree.api;
 
+import java.time.Instant;
+
 public interface Presence {
 
     enum State{
@@ -11,5 +13,5 @@ public interface Presence {
 
     State state();
 
-    long lastActiveTime();
+    Instant lastActiveTime();
 }
