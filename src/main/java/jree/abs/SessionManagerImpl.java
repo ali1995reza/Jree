@@ -140,9 +140,17 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                                     messageStore, detailsStore, clients,
                                     subscribers, controller, cache, idBuilder);
                             eventListener.preInitialize(session);
-                            clients.addNewSession(session);
-                            subscribers.addSubscriber(details.subscribeList(),
-                                    session, EMPTY_LISTENER);
+                            ClientsHolder.AddSessionResult result = clients.addNewSession(session);
+                            if(!result.isAdded()){
+                                callback.onFailed(new FailReason("can't add session right now",
+                                        FailReasonsCodes.RUNTIME_EXCEPTION));
+                                return;
+                            }
+                            if(result.isFirstSession()) {
+                                subscribers.addSubscriber(details.subscribeList(),
+                                        session, EMPTY_LISTENER);
+                                //if just first session add it to subscriber list
+                            }
                             eventListener.onInitialized(session);
                             messageStore.readStoredMessage(session,
                                     details.offset(), details.subscribeList(),
@@ -211,26 +219,21 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     @Override
     public void getSession(long clientId, long sessionId, OperationResultListener<Session<BODY, ID>> callback) {
-        SessionsHolder holder = clients.getSessionsForClient(clientId);
-        if (holder == null) {
-            callback.onFailed(
-                    new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
-        }
-        SessionImpl session = holder.findSessionById(sessionId);
-        if (session == null) {
-            callback.onFailed(
-                    new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
-        }
+        SessionImpl session = clients.findSessionById(clientId, sessionId);
+
+        if (session == null)
+            callback.onFailed(new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
         callback.onSuccess(session);
     }
 
     @Override
     public Session<BODY, ID> getSession(long clientId, long sessionId) {
-        SessionsHolder holder = clients.getSessionsForClient(clientId);
-        if (holder == null) {
-            return null;
-        }
-        return holder.findSessionById(sessionId);
+        SessionImpl session = clients.findSessionById(clientId, sessionId);
+
+        if (session == null)
+            throw new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE);
+
+        return session;
     }
 
     private final class RandomClientIdGenerator implements OperationResultListener<Boolean> {

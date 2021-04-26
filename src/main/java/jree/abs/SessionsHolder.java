@@ -33,29 +33,42 @@ final class SessionsHolder {
         return sessions.isEmpty();
     }
 
-    public void publishMessage(PubMessage message) {
+    public boolean publishMessage(PubMessage message) {
         if (message.type().is(PubMessage.Type.SESSION_TO_SESSION)) {
-            if (message.publisher().client() == clientId) {
-                //so own message !
-                SessionImpl session = sessions.get(
-                        message.publisher().session());
-                if (session != null) session.onMessagePublished(message);
+            long sessionId = message.publisher().client() == clientId ?
+                    message.publisher().session() :
+                    message.recipient().session();
+            SessionImpl session = sessions.get(sessionId);
+            if (session != null) {
+                session.onMessagePublished(message);
+                return true;
             } else {
-                SessionImpl session = sessions.get(
-                        message.recipient().session());
-                if (session != null) session.onMessagePublished(message);
+                return false;
             }
         } else {
 
             for (SessionImpl session : sessions.values()) {
                 session.onMessagePublished(message);
             }
+
+            return true;
         }
     }
 
-    public void sendSignal(Signal signal) {
-        for (SessionImpl session : sessions.values()) {
-            session.onSignalReceived(signal);
+    public boolean sendSignal(Signal signal) {
+
+        if (signal.recipient().conversation() > 0 || signal.recipient().session() < 0) {
+            for (SessionImpl session : sessions.values()) {
+                session.onSignalReceived(signal);
+            }
+            return true;
+        } else {
+            SessionImpl session = sessions.get(signal.recipient().session());
+            if (session != null) {
+                session.onSignalReceived(signal);
+                return true;
+            }
+            return false;
         }
     }
 

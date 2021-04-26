@@ -63,48 +63,22 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     private void onPublishedMessageStoredSuccessfully(PubMessage message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         if (message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
             subscribers.publishMessage(message);
-            callback.onSuccess(message);
-        } else if(message.type().is(PubMessage.Type.CLIENT_TO_CLIENT)) {
-            SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
-            if (sessionsHolder != null) {
-                sessionsHolder.publishMessage(message);
-            }
-            sessionsHolder = holder.getSessionsForClient(message.recipient().client());
-            if (sessionsHolder != null) {
-                sessionsHolder.publishMessage(message);
-            }
-            callback.onSuccess(message);
+        } else if (message.type().is(PubMessage.Type.CLIENT_TO_CLIENT)) {
+            holder.publishMessage(clientId, message);
+            holder.publishMessage(message.recipient().client(), message);
         } else {
-            SessionsHolder sessionsHolder = holder.getSessionsForClient(message.recipient().client());
-            if (sessionsHolder != null) {
-                SessionImpl session = sessionsHolder.findSessionById(message.recipient().session());
-                if(session!=null)
-                    session.onMessagePublished(message);
-            }
             onMessagePublished(message);
-
-            callback.onSuccess(message);
+            holder.publishMessage(message.recipient().client(), message);
         }
+        callback.onSuccess(message);
     }
 
     private void onSignalPublished(Signal<BODY> signal, OperationResultListener<Signal<BODY>> callback) {
-        if (signal.recipient().conversation()>0) {
+        if (signal.recipient().conversation() > 0) {
             subscribers.sendSignal(signal);
             callback.onSuccess(signal);
-        } else if(signal.recipient().session()<0) {
-            SessionsHolder sessionsHolder = holder.getSessionsForClient(signal.recipient().client());
-            if (sessionsHolder != null) {
-                sessionsHolder.sendSignal(signal);
-            }
-            callback.onSuccess(signal);
         } else {
-            SessionsHolder sessionsHolder = holder.getSessionsForClient(signal.recipient().client());
-            if (sessionsHolder != null) {
-                SessionImpl session = sessionsHolder.findSessionById(signal.recipient().session());
-                if(session!=null)
-                    session.onSignalReceived(signal);
-            }
-
+            holder.sendSignal(signal.recipient().client(), signal);
             callback.onSuccess(signal);
         }
     }
@@ -180,22 +154,30 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public void publishDisposableMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         assertIfClosed();
         PubMessageImpl<BODY, ID> pubMessage = new PubMessageImpl<>(idIdBuilder.newId(), message, Instant.now(), SessionImpl.this, recipient);
-        messageStore.storeAsDisposableMessage(pubMessage, new OperationResultListener<PubMessage<BODY, ID>>() {
+        cache.getRelation(this, recipient, new OperationResultListener<Relation>() {
             @Override
-            public void onSuccess(PubMessage message) {
-                if (message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
-                    subscribers.publishMessage(message);
-                } else {
-                    SessionsHolder sessionsHolder = holder.getSessionsForClient(clientId);
-                    if (sessionsHolder != null) {
-                        sessionsHolder.publishMessage(message);
+            public void onSuccess(Relation relation) {
+                try {
+                    if (!controller.validatePublishMessage(relation)) {
+                        callback.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
+                        return;
                     }
-                    sessionsHolder = holder.getSessionsForClient(recipient.client());
-                    if (sessionsHolder != null) {
-                        sessionsHolder.publishMessage(message);
-                    }
-                    callback.onSuccess(message);
+                } catch (Throwable e) {
+                    callback.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
+                    return;
                 }
+                PubMessageImpl<BODY, ID> pubMessage = new PubMessageImpl<>(idIdBuilder.newId(), message, Instant.now(), SessionImpl.this, recipient);
+                messageStore.storeAsDisposableMessage(pubMessage, new OperationResultListener<PubMessage<BODY, ID>>() {
+                    @Override
+                    public void onSuccess(PubMessage<BODY, ID> result) {
+                        onPublishedMessageStoredSuccessfully(result, callback);
+                    }
+
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
             }
 
             @Override
@@ -300,7 +282,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             public void onSuccess(Boolean isExists) {
                 if (isExists) {
                     detailsStore.addRelation(SessionImpl.this, recipient, key, value, result);
-                }else {
+                } else {
                     result.onFailed(new FailReason(2000421421));
                 }
             }
@@ -334,8 +316,8 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
                     callback.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
                     return;
                 }
-                Signal<BODY> signal = new SignalImpl<>(sig , SessionImpl.this , recipient);
-                onSignalPublished(signal , callback);
+                Signal<BODY> signal = new SignalImpl<>(sig, SessionImpl.this, recipient);
+                onSignalPublished(signal, callback);
             }
 
             @Override
@@ -348,7 +330,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     @Override
     public Signal<BODY> sendSignal(Recipient recipient, BODY signal) {
         AsyncToSync<Signal<BODY>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
-        sendSignal(recipient , signal ,asyncToSync);
+        sendSignal(recipient, signal, asyncToSync);
         return asyncToSync.getResult();
     }
 
@@ -367,7 +349,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     }
 
     public void onSignalReceived(Signal<BODY> signal) {
-        listener.onSignalReceived(this , signal);
+        listener.onSignalReceived(this, signal);
     }
 
     void beforeRelease(PubMessage message) {
@@ -393,9 +375,13 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             if (closed) {
                 return;
             }
+            ClientsHolder.RemoveSessionResult result = holder.removeSession(this);
+            if(!result.isRemoved())
+                throw new IllegalStateException("can not remove session - FATAL");
             closed = true;
-            holder.removeSession(this);
-            removeSubscriptions();
+            if(result.isLastSession()) {
+                removeSubscriptions();
+            }
             listener.onClosedByException(this, t);
         }
     }
@@ -405,9 +391,13 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             if (closed) {
                 return;
             }
+            ClientsHolder.RemoveSessionResult result = holder.removeSession(this);
+            if(!result.isRemoved())
+                throw new IllegalStateException("can not remove session - FATAL");
             closed = true;
-            holder.removeSession(this);
-            removeSubscriptions();
+            if(result.isLastSession()) {
+                removeSubscriptions();
+            }
             listener.onCloseByCommand(this);
         }
     }
