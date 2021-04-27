@@ -242,6 +242,47 @@ final class ClientsHolder {
         }
     }
 
+    private final class SessionCloser implements BiFunction<Long, SessionsHolder, SessionsHolder> {
+
+        private Boolean result;
+        private long sessionId;
+
+        @Override
+        public SessionsHolder apply(Long aLong, SessionsHolder sessionsHolder) {
+            if (sessionsHolder != null) {
+                SessionImpl session = sessionsHolder.removeSession(sessionId);
+                if(session!=null){
+                    session.close();
+                    result = true;
+                } else {
+                  result = false;
+                }
+            }else {
+                result = false;
+            }
+            return sessionsHolder;
+        }
+
+        public void refresh() {
+            result = null;
+        }
+
+        public void setSessionId(long sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public Boolean getResult() {
+            return result;
+        }
+
+        public Boolean getResult(Boolean def) {
+            if (result == null) {
+                return def;
+            }
+            return result;
+        }
+    }
+
     private final ConcurrentHashMap<Long, SessionsHolder> holders;
 
     private final ThreadLocalManager threadLocalManager;
@@ -288,6 +329,12 @@ final class ClientsHolder {
                 }).addClass(ClientCloser.class, x -> {
                     if (x == null) {
                         x = new ClientCloser();
+                    }
+                    x.refresh();
+                    return x;
+                }).addClass(SessionCloser.class, x -> {
+                    if (x == null) {
+                        x = new SessionCloser();
                     }
                     x.refresh();
                     return x;
@@ -339,6 +386,12 @@ final class ClientsHolder {
         return clientCloser;
     }
 
+    private SessionCloser getSessionCloser(long sessionId){
+        SessionCloser sessionCloser = threadLocalManager.get(SessionCloser.class);
+        sessionCloser.setSessionId(sessionId);
+        return sessionCloser;
+    }
+
     public AddSessionResult addNewSession(SessionImpl session) {
         SessionAdder sessionAdder = getAdder(session);
         holders.compute(session.clientId(), sessionAdder);
@@ -349,6 +402,12 @@ final class ClientsHolder {
         SessionRemover sessionRemover = getRemover(session);
         holders.computeIfPresent(session.clientId(), sessionRemover);
         return sessionRemover.getResult();
+    }
+
+    public boolean removeSessionAndCloseIt(long clientId, long sessionId){
+        SessionCloser sessionCloser = getSessionCloser(sessionId);
+        holders.computeIfPresent(clientId, sessionCloser);
+        return sessionCloser.getResult();
     }
 
     public boolean removeClientAndCloseAllSessions(long clientId) {

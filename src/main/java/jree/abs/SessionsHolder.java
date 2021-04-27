@@ -31,6 +31,10 @@ final class SessionsHolder {
         return sessions.remove(session.id(), session);
     }
 
+    public SessionImpl removeSession(long sessionId){
+        return sessions.remove(sessionId);
+    }
+
     public boolean isEmpty() {
         return sessions.isEmpty();
     }

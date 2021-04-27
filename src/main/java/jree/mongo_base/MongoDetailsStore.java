@@ -211,6 +211,13 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
     }
 
     @Override
+    public void removeSession(long client, long sessionId, OperationResultListener<Boolean> callback) {
+        batchContext.getUpdateBatch("sessions")
+                .deleteMany(and(eq("client", client), eq("session", sessionId)),
+                        alwaysTrueCallback(callback));
+    }
+
+    @Override
     public void isSessionExists(long client, long session, OperationResultListener<Boolean> callback) {
         batchContext.getFindBatch("sessions").findOne(
                 String.valueOf(client).concat("_").concat(
@@ -238,10 +245,11 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
                             callback.onFailed(new FailReason(throwable,
                                     FailReasonsCodes.RUNTIME_EXCEPTION));
                         } else {
-                            if(document==null) {
+                            if (document == null) {
                                 callback.onSuccess(false);
                             } else {
-                                boolean exists = !document.getBoolean("removed" , false);
+                                boolean exists = !document.getBoolean("removed",
+                                        false);
                                 callback.onSuccess(exists);
                             }
                         }

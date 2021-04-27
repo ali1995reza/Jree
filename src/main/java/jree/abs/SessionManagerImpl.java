@@ -202,7 +202,35 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     @Override
     public void removeSession(long clientId, long sessionId, OperationResultListener<Boolean> callback) {
+        cache.isExists(RecipientImpl.sessionRecipient(clientId , sessionId),
+                new OperationResultListener<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean result) {
+                        detailsStore.removeSession(clientId,sessionId,
+                                new OperationResultListener<Boolean>() {
+                                    @Override
+                                    public void onSuccess(Boolean result) {
+                                        if (result) {
+                                            cache.removeExistenceCache(RecipientImpl.sessionRecipient(clientId, sessionId));
+                                            clients.removeSessionAndCloseIt(clientId, sessionId);
+                                            callback.onSuccess(true);
+                                        } else {
+                                            //its never call with mongo model !
+                                        }
+                                    }
 
+                                    @Override
+                                    public void onFailed(FailReason reason) {
+                                        callback.onFailed(reason);
+                                    }
+                                });
+                    }
+
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
     }
 
     @Override
