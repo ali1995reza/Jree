@@ -1,10 +1,7 @@
 package jree.mongo_base.batch;
 
 import com.mongodb.bulk.BulkWriteResult;
-import com.mongodb.client.model.UpdateManyModel;
-import com.mongodb.client.model.UpdateOneModel;
-import com.mongodb.client.model.UpdateOptions;
-import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.model.*;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import jree.util.BatchExecutor;
@@ -28,16 +25,24 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
             this.callback = callback;
         }
 
-        public AsyncUpdateModel(UpdateOneModel<Document> update, SingleResultCallback<Void> callback)
-        {
+        public AsyncUpdateModel(UpdateOneModel<Document> update, SingleResultCallback<Void> callback) {
             this.update = update;
+            this.callback = callback;
+        }
+
+        public AsyncUpdateModel(DeleteOneModel<Document> delete, SingleResultCallback<Void> callback) {
+            this.update = delete;
+            this.callback = callback;
+        }
+
+        public AsyncUpdateModel(DeleteManyModel<Document> delete, SingleResultCallback<Void> callback) {
+            this.update = delete;
             this.callback = callback;
         }
     }
 
 
-
-    private final static class BatchCallbackHandler implements SingleResultCallback<BulkWriteResult>{
+    private final static class BatchCallbackHandler implements SingleResultCallback<BulkWriteResult> {
 
         private final List<AsyncUpdateModel> batch;
         private final List<WriteModel<Document>> writeModels;
@@ -57,24 +62,20 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
 
         @Override
         public void onResult(BulkWriteResult bulkWriteResult, Throwable throwable) {
-            if(throwable!=null)
-            {
-                if(--retries>0)
-                {
+            if (throwable != null) {
+                if (--retries > 0) {
                     collection.bulkWrite(
-                            writeModels ,
+                            writeModels,
                             this
                     );
                     return;
                 }
-                for(AsyncUpdateModel m:batch)
-                {
-                    m.callback.onResult(null , throwable);
+                for (AsyncUpdateModel m : batch) {
+                    m.callback.onResult(null, throwable);
                 }
-            }else {
-                for(AsyncUpdateModel m:batch)
-                {
-                    m.callback.onResult(null , null);
+            } else {
+                for (AsyncUpdateModel m : batch) {
+                    m.callback.onResult(null, null);
                 }
             }
         }
@@ -88,62 +89,74 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
     };
 
 
-
     private final AsyncMongoCollection<Document> collection;
 
-    public UpdateBatch(AsyncMongoCollection<Document> collection ,
+    public UpdateBatch(AsyncMongoCollection<Document> collection,
                        ScheduledExecutorService service,
                        int batchSize, long timeOut) {
         super(service, batchSize, timeOut);
         this.collection = collection;
     }
 
-    public UpdateBatch putInBatch(UpdateManyModel<Document> update , SingleResultCallback<Void> callback)
-    {
+    public UpdateBatch putInBatch(UpdateManyModel<Document> update, SingleResultCallback<Void> callback) {
         putInBatch(new AsyncUpdateModel(update, callback));
         return this;
     }
 
-    public UpdateBatch putInBatch(UpdateOneModel<Document> update , SingleResultCallback<Void> callback)
-    {
+    public UpdateBatch putInBatch(UpdateOneModel<Document> update, SingleResultCallback<Void> callback) {
         putInBatch(new AsyncUpdateModel(update, callback));
         return this;
     }
 
-    public UpdateBatch updateOne(Bson filter , Bson update , UpdateOptions options , SingleResultCallback<Void> callback)
-    {
+    public UpdateBatch putInBatch(DeleteOneModel<Document> delete, SingleResultCallback<Void> callback) {
+        putInBatch(new AsyncUpdateModel(delete, callback));
+        return this;
+    }
+
+    public UpdateBatch putInBatch(DeleteManyModel<Document> delete, SingleResultCallback<Void> callback) {
+        putInBatch(new AsyncUpdateModel(delete, callback));
+        return this;
+    }
+
+    public UpdateBatch updateOne(Bson filter, Bson update, UpdateOptions options, SingleResultCallback<Void> callback) {
         return putInBatch(new UpdateOneModel<Document>(
-                filter , update , options
-        ) , callback);
+                filter, update, options
+        ), callback);
     }
 
-    public UpdateBatch updateOne(Bson filter , Bson update , SingleResultCallback<Void> callback)
-    {
+    public UpdateBatch updateOne(Bson filter, Bson update, SingleResultCallback<Void> callback) {
         return putInBatch(new UpdateOneModel<Document>(
-                filter , update
-        ) , callback);
+                filter, update
+        ), callback);
     }
 
-    public UpdateBatch updateMany(Bson filter , Bson update , UpdateOptions options , SingleResultCallback<Void> callback)
-    {
+    public UpdateBatch updateMany(Bson filter, Bson update, UpdateOptions options, SingleResultCallback<Void> callback) {
         return putInBatch(new UpdateManyModel<Document>(
-                filter , update , options
-        ) , callback);
+                filter, update, options
+        ), callback);
     }
 
-    public UpdateBatch updateMany(Bson filter , Bson update , SingleResultCallback<Void> callback)
-    {
+    public UpdateBatch updateMany(Bson filter, Bson update, SingleResultCallback<Void> callback) {
         return putInBatch(new UpdateManyModel<Document>(
-                filter , update
-        ) , callback);
+                filter, update
+        ), callback);
+    }
+
+    public UpdateBatch deleteOne(Bson filter, SingleResultCallback<Void> callback) {
+        return putInBatch(new DeleteOneModel<>(filter), callback);
+    }
+
+    public UpdateBatch deleteMany(Bson filter, SingleResultCallback<Void> callback) {
+        return putInBatch(new DeleteManyModel<>(filter), callback);
     }
 
     @Override
     public void executeBatch(List<AsyncUpdateModel> batch) {
-        List<WriteModel<Document>> writeList = new ConverterList<>(batch,CONVERTER);
+        List<WriteModel<Document>> writeList = new ConverterList<>(batch,
+                CONVERTER);
         collection.bulkWrite(
-                writeList ,
-                new BatchCallbackHandler(batch, writeList, collection , 2)
+                writeList,
+                new BatchCallbackHandler(batch, writeList, collection, 2)
         );
     }
 

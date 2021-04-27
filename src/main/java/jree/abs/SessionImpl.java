@@ -86,7 +86,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     @Override
     public void publishMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         assertIfClosed();
-        cache.getRelation(this, recipient, new OperationResultListener<Relation>() {
+        cache.checkExistenceAndGetRelation(this, recipient, new OperationResultListener<Relation>() {
             @Override
             public void onSuccess(Relation relation) {
                 try {
@@ -154,7 +154,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public void publishDisposableMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         assertIfClosed();
         PubMessageImpl<BODY, ID> pubMessage = new PubMessageImpl<>(idIdBuilder.newId(), message, Instant.now(), SessionImpl.this, recipient);
-        cache.getRelation(this, recipient, new OperationResultListener<Relation>() {
+        cache.checkExistenceAndGetRelation(this, recipient, new OperationResultListener<Relation>() {
             @Override
             public void onSuccess(Relation relation) {
                 try {
@@ -304,7 +304,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     @Override
     public void sendSignal(Recipient recipient, BODY sig, OperationResultListener<Signal<BODY>> callback) {
         assertIfClosed();
-        cache.getRelation(this, recipient, new OperationResultListener<Relation>() {
+        cache.checkExistenceAndGetRelation(this, recipient, new OperationResultListener<Relation>() {
             @Override
             public void onSuccess(Relation relation) {
                 try {

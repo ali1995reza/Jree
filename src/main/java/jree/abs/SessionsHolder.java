@@ -5,6 +5,8 @@ import jree.api.Signal;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 
 final class SessionsHolder {
 
@@ -76,4 +78,7 @@ final class SessionsHolder {
         return sessions.get(sessionId);
     }
 
+    public List<SessionImpl> sessions(){
+        return sessions.values().stream().collect(Collectors.toList());
+    }
 }

@@ -51,4 +51,11 @@ public class ECacheBase<K, V> {
         get(key, null, listener);
     }
 
+    void remove(K key){
+        cache.remove(key);
+    }
+
+    public Cache<K, V> getCache() {
+        return cache;
+    }
 }

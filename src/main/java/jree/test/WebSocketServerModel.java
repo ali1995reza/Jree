@@ -129,10 +129,12 @@ public class WebSocketServerModel {
 
                             @Override
                             public void onClosedByException(SessionContext context, Throwable exception) {
+                                user.close();
                             }
 
                             @Override
                             public void onCloseByCommand(SessionContext context) {
+                                user.close();
                             }
                         });
 
@@ -153,6 +155,10 @@ public class WebSocketServerModel {
                 users.get(user)
                         .sendSignal(RecipientImpl.clientRecipient(recipientClient) ,
                                 message);
+            } else if(command.equalsIgnoreCase("remove")) {
+                boolean b = pubSubSystem.sessionManager()
+                        .removeClient(users.get(user).clientId());
+                System.out.println(b);
             }
         }
 

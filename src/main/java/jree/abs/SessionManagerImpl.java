@@ -81,11 +81,18 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                                 new OperationResultListener<Boolean>() {
                                     @Override
                                     public void onSuccess(Boolean result) {
-                                        //now just need to kill active sessions !
+                                        if (result) {
+                                            cache.removeExistenceCache(RecipientImpl.clientRecipient(id));
+                                            clients.removeClientAndCloseAllSessions(id);
+                                            callback.onSuccess(true);
+                                        } else {
+                                            //its never call with mongo model !
+                                        }
                                     }
 
                                     @Override
                                     public void onFailed(FailReason reason) {
+                                        callback.onFailed(reason);
                                     }
                                 });
                     }
@@ -121,11 +128,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
         if (!canAcceptSessions)
             callback.onFailed(new FailReason(100000));
 
-        if (clients.isSessionActive(clientId, sessionId))
-            callback.onFailed(new FailReason(32132132));
-
-        final ExceptionAdaptedEventListener<BODY, ID> eventListener = new ExceptionAdaptedEventListener<>(
-                ev);
+        final ExceptionAdaptedEventListener<BODY, ID> eventListener = new ExceptionAdaptedEventListener<>(ev);
 
         detailsStore.getSessionDetails(clientId, sessionId,
                 new OperationResultListener<SessionDetails<ID>>() {
@@ -140,14 +143,17 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                                     messageStore, detailsStore, clients,
                                     subscribers, controller, cache, idBuilder);
                             eventListener.preInitialize(session);
-                            ClientsHolder.AddSessionResult result = clients.addNewSession(session);
-                            if(!result.isAdded()){
-                                callback.onFailed(new FailReason("can't add session right now",
+                            ClientsHolder.AddSessionResult result = clients.addNewSession(
+                                    session);
+                            if (!result.isAdded()) {
+                                callback.onFailed(new FailReason(
+                                        "can't add session right now",
                                         FailReasonsCodes.RUNTIME_EXCEPTION));
                                 return;
                             }
-                            if(result.isFirstSession()) {
-                                subscribers.addSubscriber(details.subscribeList(),
+                            if (result.isFirstSession()) {
+                                subscribers.addSubscriber(
+                                        details.subscribeList(),
                                         session, EMPTY_LISTENER);
                                 //if just first session add it to subscriber list
                             }
@@ -222,7 +228,8 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
         SessionImpl session = clients.findSessionById(clientId, sessionId);
 
         if (session == null)
-            callback.onFailed(new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
+            callback.onFailed(
+                    new FailReason(FailReasonsCodes.SESSION_NOT_ACTIVE));
         callback.onSuccess(session);
     }
 

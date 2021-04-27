@@ -35,9 +35,11 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            statement.execute("CREATE TABLE " + tableName + "(C BIGINT , CL BIGINT)");
+            statement.execute(
+                    "CREATE TABLE " + tableName + "(C BIGINT , CL BIGINT)");
             statement.execute("CREATE INDEX C_INDEX ON " + tableName + " (C)");
-            statement.execute("CREATE INDEX CL_INDEX ON " + tableName + " (CL)");
+            statement.execute(
+                    "CREATE INDEX CL_INDEX ON " + tableName + " (CL)");
         } catch (Throwable e) {
             throw new IllegalStateException(e);
         }
@@ -48,7 +50,8 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
             SessionImpl<BODY, ID> session,
             OperationResultListener<Boolean> callback
     ) {
-        String sql = "INSERT INTO " + tableName + " VALUES " + commaSplitString(conversations, session);
+        String sql = "INSERT INTO " + tableName + " VALUES " + commaSplitString(
+                conversations, session);
 
         doAdd(sql, callback);
 
@@ -70,17 +73,18 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
             OperationResultListener<Boolean> callback
     ) {
         String sql = "DELETE FROM " + tableName + " WHERE CL=" + session.clientId() + " AND S=" + session.id() + " AND C=" + conversation;
-        subscribersDatabase.execute(sql, new OperationResultListener<Statement>() {
-            @Override
-            public void onSuccess(Statement result) {
-                callback.onSuccess(true);
-            }
+        subscribersDatabase.execute(sql,
+                new OperationResultListener<Statement>() {
+                    @Override
+                    public void onSuccess(Statement result) {
+                        callback.onSuccess(true);
+                    }
 
-            @Override
-            public void onFailed(FailReason reason) {
-                callback.onFailed(reason);
-            }
-        });
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
 
         return this;
     }
@@ -141,58 +145,62 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
     public ConversationSubscribersHolder<BODY, ID> publishMessage(
             PubMessage<BODY, ID> pubMessage
     ) {
-        Assertion.ifTrue("recipient not a conversation", pubMessage.recipient().conversation() < 0);
+        Assertion.ifTrue("recipient not a conversation",
+                pubMessage.recipient().conversation() < 0);
 
         String sql = queryBaseString + pubMessage.recipient().conversation();
 
-        subscribersDatabase.execute(sql, new OperationResultListener<Statement>() {
-            @Override
-            public void onSuccess(Statement result) {
-                try {
-                    ResultSet set = result.getResultSet();
-                    while (set.next()) {
-                        long clientId = set.getLong(1);
-                        clients.publishMessage(clientId, pubMessage);
+        subscribersDatabase.execute(sql,
+                new OperationResultListener<Statement>() {
+                    @Override
+                    public void onSuccess(Statement result) {
+                        try {
+                            ResultSet set = result.getResultSet();
+                            while (set.next()) {
+                                long clientId = set.getLong(1);
+                                clients.publishMessage(clientId, pubMessage);
+                            }
+                        } catch (SQLException e) {
+                            //todo handle it
+                        }
                     }
-                } catch (SQLException e) {
-                    //todo handle it
-                }
-            }
 
-            @Override
-            public void onFailed(FailReason reason) {
-                onFailed(reason);
-            }
-        });
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        onFailed(reason);
+                    }
+                });
         return this;
     }
 
     public ConversationSubscribersHolder<BODY, ID> sendSignal(
             Signal<BODY> signal
     ) {
-        Assertion.ifTrue("recipient not a conversation", signal.recipient().conversation() < 0);
+        Assertion.ifTrue("recipient not a conversation",
+                signal.recipient().conversation() < 0);
 
         String sql = queryBaseString + signal.recipient().conversation();
 
-        subscribersDatabase.execute(sql, new OperationResultListener<Statement>() {
-            @Override
-            public void onSuccess(Statement result) {
-                try {
-                    ResultSet set = result.getResultSet();
-                    while (set.next()) {
-                        long clientId = set.getLong(1);
-                        clients.sendSignal(clientId, signal);
+        subscribersDatabase.execute(sql,
+                new OperationResultListener<Statement>() {
+                    @Override
+                    public void onSuccess(Statement result) {
+                        try {
+                            ResultSet set = result.getResultSet();
+                            while (set.next()) {
+                                long clientId = set.getLong(1);
+                                clients.sendSignal(clientId, signal);
+                            }
+                        } catch (SQLException e) {
+                            //todo handle it
+                        }
                     }
-                } catch (SQLException e) {
-                    //todo handle it
-                }
-            }
 
-            @Override
-            public void onFailed(FailReason reason) {
-                onFailed(reason);
-            }
-        });
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        onFailed(reason);
+                    }
+                });
         return this;
     }
 
@@ -200,17 +208,18 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
     public ConversationSubscribersHolder<BODY, ID> remove(SessionImpl session,
                                                           OperationResultListener<Boolean> callback) {
         String sql = "DELETE FROM " + tableName + " WHERE CL=" + session.clientId();
-        subscribersDatabase.execute(sql, new OperationResultListener<Statement>() {
-            @Override
-            public void onSuccess(Statement result) {
-                callback.onSuccess(true);
-            }
+        subscribersDatabase.execute(sql,
+                new OperationResultListener<Statement>() {
+                    @Override
+                    public void onSuccess(Statement result) {
+                        callback.onSuccess(true);
+                    }
 
-            @Override
-            public void onFailed(FailReason reason) {
-                callback.onFailed(reason);
-            }
-        });
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
 
         return this;
     }

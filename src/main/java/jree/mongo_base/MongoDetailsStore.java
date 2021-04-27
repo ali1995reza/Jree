@@ -68,6 +68,8 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
         this.batchContext.createNewUpsertBatch("sessions",
                 sessionsDetailsStoreCollection, UpsertBatch.STRING_FETCHER,
                 1000, 100);
+        this.batchContext.createNewUpdateBatch("sessions",
+                sessionsDetailsStoreCollection, 1000, 100);
         this.batchContext.createNewUpdateBatch("relation",
                 relationStoreCollection, 2000, 100);
         this.batchContext.createNewFindBatch("relation",
@@ -88,7 +90,19 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
 
     private void doRemoveClient(long client, OperationResultListener<Boolean> callback) {
         batchContext.getUpdateBatch("clients").updateOne(eq("_id", client),
-                set("remove", true), alwaysTrueCallback(callback));
+                set("removed", true), new SingleResultCallback<Void>() {
+                    @Override
+                    public void onResult(Void unused, Throwable throwable) {
+                        if (throwable != null) {
+                            callback.onFailed(new FailReason(throwable,
+                                    FailReasonsCodes.RUNTIME_EXCEPTION));
+                        } else {
+                            batchContext.getUpdateBatch("sessions")
+                                    .deleteMany(eq("client", client),
+                                            alwaysTrueCallback(callback));
+                        }
+                    }
+                });
     }
 
     public void doAddSessionToClient(long client, OperationResultListener<Long> callback) {
@@ -144,9 +158,6 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
     private static String uniqueId(long client, long session) {
         return String.valueOf(client).concat("_").concat(
                 String.valueOf(session));
-    }
-
-    public void setMessageOffset(Session session, String offset, OperationResultListener<Boolean> callback) {
     }
 
     public void getRelation(String relationId, OperationResultListener<Relation> result) {
@@ -227,7 +238,12 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
                             callback.onFailed(new FailReason(throwable,
                                     FailReasonsCodes.RUNTIME_EXCEPTION));
                         } else {
-                            callback.onSuccess(document != null);
+                            if(document==null) {
+                                callback.onSuccess(false);
+                            } else {
+                                boolean exists = !document.getBoolean("removed" , false);
+                                callback.onSuccess(exists);
+                            }
                         }
                     }
                 });
@@ -302,7 +318,7 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
     public void setSessionOffset(long client, long session, ID offset, OperationResultListener<Boolean> callback) {
         batchContext.getUpdateBatch("sessions").updateOne(
                 and(eq("client", client), eq("session", session)),
-                set("offset", offset), new UpdateOptions().upsert(true),
+                set("offset", offset),
                 alwaysTrueCallback(callback));
     }
 
