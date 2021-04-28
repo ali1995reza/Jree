@@ -104,6 +104,7 @@ public class WebSocketServerModel {
                             public void onMessagePublished(SessionContext context, PubMessage<String, String> message) {
                                 try {
                                     user.getRemote().sendString(message.toString());
+                                    users.get(user).setMessageOffset(message.id());
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 }
@@ -144,11 +145,15 @@ public class WebSocketServerModel {
             } else if(command.equalsIgnoreCase("publish")){
                 String message = jsonObject.getString("message");
                 long recipientClient = jsonObject.getLong("client");
+                long recipientSession = -1;
+                if(jsonObject.has("session")){
+                    recipientSession = jsonObject.getLong("session");
+                }
 
                 users.get(user)
-                        .publishMessage(RecipientImpl.clientRecipient(recipientClient) ,
+                        .publishMessage(RecipientImpl.sessionRecipient(recipientClient, recipientSession) ,
                                 message);
-            } else if(command.equalsIgnoreCase("signal")){
+            }else if(command.equalsIgnoreCase("signal")){
                 String message = jsonObject.getString("message");
                 long recipientClient = jsonObject.getLong("client");
 
@@ -158,6 +163,10 @@ public class WebSocketServerModel {
             } else if(command.equalsIgnoreCase("remove")) {
                 boolean b = pubSubSystem.sessionManager()
                         .removeClient(users.get(user).clientId());
+                System.out.println(b);
+            } else if(command.equalsIgnoreCase("remove_session")){
+                boolean b = pubSubSystem.sessionManager()
+                        .removeSession(users.get(user).clientId(), users.get(user).id());
                 System.out.println(b);
             }
         }
