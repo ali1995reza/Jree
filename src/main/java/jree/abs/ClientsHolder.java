@@ -250,7 +250,7 @@ final class ClientsHolder {
         @Override
         public SessionsHolder apply(Long aLong, SessionsHolder sessionsHolder) {
             if (sessionsHolder != null) {
-                SessionImpl session = sessionsHolder.removeSession(sessionId);
+                SessionImpl session = sessionsHolder.findSessionById(sessionId);
                 if(session!=null){
                     session.close();
                     result = true;

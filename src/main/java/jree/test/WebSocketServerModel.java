@@ -104,7 +104,7 @@ public class WebSocketServerModel {
                             public void onMessagePublished(SessionContext context, PubMessage<String, String> message) {
                                 try {
                                     user.getRemote().sendString(message.toString());
-                                    users.get(user).setMessageOffset(message.id());
+                                    context.currentSession().setMessageOffset(message.id());
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 }
