@@ -152,9 +152,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                                 return;
                             }
                             if (result.isFirstSession()) {
-                                subscribers.addSubscriber(
-                                        details.subscribeList(),
-                                        session, EMPTY_LISTENER);
+                                subscribers.addSubscriber(details.subscribeList(), session);
                                 //if just first session add it to subscriber list
                             }
                             eventListener.onInitialized(session);

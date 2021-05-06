@@ -227,7 +227,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             @Override
             public void onSuccess(Boolean result) {
                 if (result) {
-                    subscribers.addSubscriber(subscribe, SessionImpl.this, OperationResultListener.EMPTY_LISTENER);
+                    subscribers.addSubscriber(subscribe, SessionImpl.this);
                     callback.onSuccess(result);
                 } else {
                     callback.onSuccess(result);
@@ -254,7 +254,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             @Override
             public void onSuccess(Boolean result) {
                 if (result) {
-                    subscribers.removeSubscriber(conversations, SessionImpl.this, EMPTY_LISTENER);
+                    subscribers.removeSubscriber(conversations, SessionImpl.this);
                     callback.onSuccess(result);
                 } else {
                     callback.onSuccess(result);

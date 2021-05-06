@@ -1,5 +1,6 @@
 package jree.abs;
 
+import jree.abs.funcs.AsyncToSync;
 import jree.abs.utils.H2ConnectionPool;
 import jree.api.*;
 import jree.util.Assertion;
@@ -58,6 +59,16 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
         return this;
     }
 
+    public ConversationSubscribersHolder<BODY, ID> addSubscriber(
+            Iterable<Long> conversations,
+            SessionImpl<BODY, ID> session
+    ) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        addSubscriber(conversations, session, asyncToSync);
+        asyncToSync.getResult();
+        return this;
+    }
+
 
     public ConversationSubscribersHolder<BODY, ID> addSubscriber(
             long conversation,
@@ -65,6 +76,16 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
             OperationResultListener<Boolean> callback
     ) {
         return doAdd(conversation, session, callback);
+    }
+
+    public ConversationSubscribersHolder<BODY, ID> addSubscriber(
+            long conversation,
+            SessionImpl<BODY, ID> session
+    ) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        addSubscriber(conversation, session, asyncToSync);
+        asyncToSync.getResult();
+        return this;
     }
 
     public ConversationSubscribersHolder<BODY, ID> removeSubscriber(
@@ -86,6 +107,14 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
                     }
                 });
 
+        return this;
+    }
+
+    public ConversationSubscribersHolder<BODY,ID> removeSubscriber(long conversation,
+                                                                   SessionImpl<BODY, ID> session){
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        removeSubscriber(conversation, session, asyncToSync);
+        asyncToSync.getResult();
         return this;
     }
 
