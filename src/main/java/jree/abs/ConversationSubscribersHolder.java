@@ -23,11 +23,11 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
 
         this.tableName = "subscribers";
         this.subscribersDatabase = new H2ConnectionPool(5, path);
-        initDB(path);
+        initDB();
         this.queryBaseString = "SELECT CL,S FROM " + tableName + " WHERE C = ";
     }
 
-    private void initDB(String path) {
+    private void initDB() {
         try {
             Statement statement =
                     subscribersDatabase.getDataSource().getConnection().createStatement();
