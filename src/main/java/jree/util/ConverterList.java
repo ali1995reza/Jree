@@ -1,20 +1,17 @@
 package jree.util;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 import java.util.function.Consumer;
 
-public class ConverterList<F , T> implements List<T> {
+public class ConverterList<F, T> implements List<T> {
+
+    private static IllegalStateException UNMODIFIABLE_EXCEPTION = new IllegalStateException("unmodifiable list");
 
 
-
-
-    private final static class ConverterIter<F , T> implements Iterator<T>{
+    private final static class ConverterIter<F, T> implements Iterator<T> {
 
         private final Iterator<F> wrapped;
-        private final Converter<F , T> converter;
+        private final Converter<F, T> converter;
 
         private ConverterIter(Iterator<F> wrapped, Converter<F, T> converter) {
             this.wrapped = wrapped;
@@ -38,17 +35,17 @@ public class ConverterList<F , T> implements List<T> {
 
         @Override
         public void forEachRemaining(Consumer<? super T> action) {
-            while (hasNext())
-            {
+            while (hasNext()) {
                 action.accept(next());
             }
         }
+
     }
 
-    private final static class ConverterListIter<F , T> implements ListIterator<T>{
+    private final static class ConverterListIter<F, T> implements ListIterator<T> {
 
         private final ListIterator<F> wrapped;
-        private final Converter<F , T> converter;
+        private final Converter<F, T> converter;
 
         private ConverterListIter(ListIterator<F> wrapped, Converter<F, T> converter) {
             this.wrapped = wrapped;
@@ -92,13 +89,14 @@ public class ConverterList<F , T> implements List<T> {
 
         @Override
         public void set(T t) {
-            throw new IllegalStateException("ops not supported");
+            throw UNMODIFIABLE_EXCEPTION;
         }
 
         @Override
         public void add(T t) {
-            throw new IllegalStateException("ops not supported");
+            throw UNMODIFIABLE_EXCEPTION;
         }
+
     }
 
     public ConverterList(List<F> wrapped, Converter<F, T> converter) {
@@ -106,13 +104,8 @@ public class ConverterList<F , T> implements List<T> {
         this.converter = converter;
     }
 
-
-
-
-
     private final List<F> wrapped;
-    private final Converter<F , T> converter;
-
+    private final Converter<F, T> converter;
 
     @Override
     public int size() {
@@ -126,17 +119,26 @@ public class ConverterList<F , T> implements List<T> {
 
     @Override
     public boolean contains(Object o) {
-        return wrapped.contains(o);
+        for (T t : this) {
+            if (t == o || (t != null && t.equals(o))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     public Iterator<T> iterator() {
-        return new ConverterIter<>(wrapped.iterator() , converter);
+        return new ConverterIter<>(wrapped.iterator(), converter);
     }
 
     @Override
     public Object[] toArray() {
-        return new Object[0];
+        Object[] objects = new Object[size()];
+        for (int i = 0; i < objects.length; i++) {
+            objects[i] = get(i);
+        }
+        return objects;
     }
 
     @Override
@@ -146,86 +148,111 @@ public class ConverterList<F , T> implements List<T> {
 
     @Override
     public boolean add(T t) {
-        return false;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public boolean remove(Object o) {
-        return false;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public boolean containsAll(Collection<?> c) {
-        return false;
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
     public boolean addAll(Collection<? extends T> c) {
-        return false;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public boolean addAll(int index, Collection<? extends T> c) {
-        return false;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public boolean removeAll(Collection<?> c) {
-        return false;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public boolean retainAll(Collection<?> c) {
-        return false;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public void clear() {
-
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public T get(int index) {
-        return null;
+        return converter.convert(wrapped.get(index));
     }
 
     @Override
     public T set(int index, T element) {
-        return null;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public void add(int index, T element) {
-
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public T remove(int index) {
-        return null;
+        throw UNMODIFIABLE_EXCEPTION;
     }
 
     @Override
     public int indexOf(Object o) {
-        return 0;
+        for(int i=0;i<size();i++) {
+            if(o==get(i) || (o!=null && o.equals(i)))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     @Override
     public int lastIndexOf(Object o) {
-        return 0;
+        int index = -1;
+        for(int i=0;i<size();i++) {
+            if(o==get(i) || (o!=null && o.equals(i)))
+            {
+                index = i;
+            }
+        }
+
+        return index;
     }
 
     @Override
     public ListIterator<T> listIterator() {
-        return null;
+        return new ConverterListIter<>(wrapped.listIterator(), converter);
     }
 
     @Override
     public ListIterator<T> listIterator(int index) {
-        return null;
+        return new ConverterListIter<>(wrapped.listIterator(index), converter);
     }
 
     @Override
     public List<T> subList(int fromIndex, int toIndex) {
-        return null;
+        List<T> list = new ArrayList<>();
+        for(int i=fromIndex;i<toIndex;i++) {
+            list.add(get(i));
+        }
+        return list;
     }
+
 }
