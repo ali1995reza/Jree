@@ -4,11 +4,18 @@ public interface RelationController {
 
     RelationController ALWAYS_ACCEPT = new RelationController() {
         @Override
-        public boolean validatePublishMessage(Relation relation) {
+        public boolean validatePublishMessage(Session publisher, Recipient recipient, Relation relation) {
             return true;
         }
     };
 
-    boolean validatePublishMessage(Relation relation);
+    RelationController ALWAYS_REJECT = new RelationController() {
+        @Override
+        public boolean validatePublishMessage(Session publisher, Recipient recipient, Relation relation) {
+            return false;
+        }
+    };
+
+    boolean validatePublishMessage(Session publisher, Recipient recipient, Relation relation);
 
 }

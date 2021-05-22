@@ -7,23 +7,10 @@ public interface Relation {
 
     Relation EMPTY = new Relation() {
         @Override
-        public Map<String, String> setByClient(long clientId) {
-            return Collections.emptyMap();
-        }
-
-        @Override
-        public Map<String, String> setByConversation(long conversationId) {
-            return Collections.emptyMap();
-        }
-
-        @Override
-        public String toString() {
-            return "EMPTY_RELATION";
+        public String getAttribute(String attar) {
+            return null;
         }
     };
 
-
-    Map<String , String> setByClient(long clientId);
-
-    Map<String , String> setByConversation(long conversationId);
+    String getAttribute(String attar);
 }

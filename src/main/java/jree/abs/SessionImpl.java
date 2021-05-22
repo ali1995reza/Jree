@@ -90,7 +90,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             @Override
             public void onSuccess(Relation relation) {
                 try {
-                    if (!controller.validatePublishMessage(relation)) {
+                    if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
                         callback.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
                         return;
                     }
@@ -158,7 +158,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             @Override
             public void onSuccess(Relation relation) {
                 try {
-                    if (!controller.validatePublishMessage(relation)) {
+                    if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
                         callback.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
                         return;
                     }
@@ -276,7 +276,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     }
 
     @Override
-    public void setRelationProperties(Recipient recipient, String key, String value, OperationResultListener<Boolean> result) {
+    public void setRelationAttribute(Recipient recipient, String key, String value, OperationResultListener<Boolean> result) {
         cache.isExists(recipient, new OperationResultListener<Boolean>() {
             @Override
             public void onSuccess(Boolean isExists) {
@@ -295,9 +295,9 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     }
 
     @Override
-    public boolean setRelationProperties(Recipient recipient, String key, String value) {
+    public boolean setRelationAttribute(Recipient recipient, String key, String value) {
         AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
-        setRelationProperties(recipient, key, value, asyncToSync);
+        setRelationAttribute(recipient, key, value, asyncToSync);
         return asyncToSync.getResult();
     }
 
@@ -308,7 +308,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             @Override
             public void onSuccess(Relation relation) {
                 try {
-                    if (!controller.validatePublishMessage(relation)) {
+                    if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
                         callback.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
                         return;
                     }
@@ -331,6 +331,28 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public Signal<BODY> sendSignal(Recipient recipient, BODY signal) {
         AsyncToSync<Signal<BODY>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         sendSignal(recipient, signal, asyncToSync);
+        return asyncToSync.getResult();
+    }
+
+    @Override
+    public void subscribeList(OperationResultListener<List<Long>> callback) {
+        detailsStore.getSessionDetails(clientId, sessionId, new OperationResultListener<SessionDetails<ID>>() {
+            @Override
+            public void onSuccess(SessionDetails<ID> result) {
+                callback.onSuccess(result.subscribeList());
+            }
+
+            @Override
+            public void onFailed(FailReason reason) {
+                callback.onFailed(reason);
+            }
+        });
+    }
+
+    @Override
+    public List<Long> subscribeList() {
+        AsyncToSync<List<Long>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        subscribeList(asyncToSync);
         return asyncToSync.getResult();
     }
 

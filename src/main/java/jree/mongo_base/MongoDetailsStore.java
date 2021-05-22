@@ -19,6 +19,7 @@ import org.bson.Document;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -170,27 +171,19 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
                                     FailReasonsCodes.RUNTIME_EXCEPTION));
                             return;
                         }
-                        if (document == null) {
+                        if (document == null ||  document.size()==1 /*just contains id !*/) {
                             result.onSuccess(Relation.EMPTY);
                             return;
                         }
-                        MongoRelation.Holder a = null;
-                        MongoRelation.Holder b = null;
-                        for (String key : document.keySet()) {
-                            if (key.startsWith("CL")) {
-                                long id = Long.parseLong(key.split("_")[1]);
-                                Map<String, String> map = (Map<String, String>) document.get(
-                                        key);
-                                a = MongoRelation.Holder.clientHolder(id, map);
-                            } else if (key.startsWith("C")) {
-                                long id = Long.parseLong(key.split("_")[1]);
-                                Map<String, String> map = (Map<String, String>) document.get(
-                                        key);
-                                b = MongoRelation.Holder.conversationHolder(id,
-                                        map);
-                            }
+
+                        final Map<String, String> attars = new HashMap<>();
+
+                        for (Map.Entry<String, Object> entry : document.entrySet()) {
+                            if(entry.getKey().equals("_id"))
+                                continue;
+                            attars.put(entry.getKey(), (String) entry.getValue());
                         }
-                        result.onSuccess(new MongoRelation(a, b));
+                        result.onSuccess(new MongoRelation(attars));
                     }
                 });
     }
@@ -339,8 +332,7 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
             id = "C_" + session.clientId() + "_" + recipient.conversation();
         }
         batchContext.getUpdateBatch("relation").updateOne(eq("_id", id),
-                set("CL_".concat(String.valueOf(session.clientId())).concat(
-                        ".").concat(key), value),
+                set(key, value),
                 new UpdateOptions().upsert(true), alwaysTrueCallback(callback));
     }
 

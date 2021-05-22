@@ -176,13 +176,15 @@ public class Test {
         Session<String , String> session2_x = pubSubSystem.sessionManager()
                 .openSession(2, 2592858883883676207l, new RelationController() {
                     @Override
-                    public boolean validatePublishMessage(Relation relation) {
-                        if(relation.setByClient(2).get("Block")!=null)
+                    public boolean validatePublishMessage(Session publisher, Recipient recipient, Relation relation) {
+                        if(relation.getAttribute(publisher.clientId()+"_Block")!=null)
+                            return false;
+                        else if(relation.getAttribute(recipient.client()+"_Block")!=null)
                             return false;
 
                         return true;
                     }
-                } , new MyEventListener("SSSSSS+_+_+_"));
+                }, new MyEventListener("SSSSSS+_+_+_"));
 
         System.out.println(System.currentTimeMillis()-start);
 

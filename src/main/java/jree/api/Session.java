@@ -1,6 +1,8 @@
 package jree.api;
 
 
+import java.util.List;
+
 public interface Session<BODY, ID> extends Attachable {
 
     long clientId();
@@ -41,13 +43,15 @@ public interface Session<BODY, ID> extends Attachable {
 
     boolean unsubscribe(long conversations);
 
-    void setRelationProperties(Recipient recipient , String key , String value , OperationResultListener<Boolean> result);
+    void setRelationAttribute(Recipient recipient , String key , String value , OperationResultListener<Boolean> result);
 
-    boolean setRelationProperties(Recipient recipient , String key , String value );
+    boolean setRelationAttribute(Recipient recipient , String key , String value );
 
     void sendSignal(Recipient recipient ,  BODY signal , OperationResultListener<Signal<BODY>> callback);
 
     Signal<BODY> sendSignal(Recipient recipient ,  BODY signal);
 
+    void subscribeList(OperationResultListener<List<Long>> callback);
 
+    List<Long> subscribeList();
 }
