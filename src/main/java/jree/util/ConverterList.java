@@ -254,7 +254,7 @@ public class ConverterList<F, T> implements List<T> {
 
     @Override
     public String toString() {
-        StrBuilder builder = new StrBuilder();
+        StringBuilder builder = new StringBuilder();
         builder.append("ConvertedList [ ");
         for (int i = 0; i < size(); i++) {
             builder.append(get(i).toString());
