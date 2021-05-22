@@ -5,8 +5,7 @@ import java.util.function.Consumer;
 
 public class ConverterList<F, T> implements List<T> {
 
-    private static IllegalStateException UNMODIFIABLE_EXCEPTION = new IllegalStateException("unmodifiable list");
-
+    private static final IllegalStateException UNMODIFIABLE_EXCEPTION = new IllegalStateException("unmodifiable list");
 
     private final static class ConverterIter<F, T> implements Iterator<T> {
 
@@ -213,26 +212,24 @@ public class ConverterList<F, T> implements List<T> {
 
     @Override
     public int indexOf(Object o) {
-        for(int i=0;i<size();i++) {
-            if(o==get(i) || (o!=null && o.equals(i)))
-            {
+        for (int i = 0; i < size(); i++) {
+            T data = get(i);
+            if (o == data || (o != null && o.equals(data))) {
                 return i;
             }
         }
-
         return -1;
     }
 
     @Override
     public int lastIndexOf(Object o) {
         int index = -1;
-        for(int i=0;i<size();i++) {
-            if(o==get(i) || (o!=null && o.equals(i)))
-            {
+        for (int i = 0; i < size(); i++) {
+            T data = get(i);
+            if (o == data || (o != null && o.equals(data))) {
                 index = i;
             }
         }
-
         return index;
     }
 
@@ -249,10 +246,26 @@ public class ConverterList<F, T> implements List<T> {
     @Override
     public List<T> subList(int fromIndex, int toIndex) {
         List<T> list = new ArrayList<>();
-        for(int i=fromIndex;i<toIndex;i++) {
+        for (int i = fromIndex; i < toIndex; i++) {
             list.add(get(i));
         }
         return list;
+    }
+
+    @Override
+    public String toString() {
+        StrBuilder builder = new StrBuilder();
+        builder.append("ConvertedList [ ");
+        for (int i = 0; i < size(); i++) {
+            builder.append(get(i).toString());
+            if (i == size() - 1) {
+                builder.append(" ");
+            } else {
+                builder.append(" , ");
+            }
+        }
+        builder.append("]");
+        return builder.toString();
     }
 
 }
