@@ -11,6 +11,8 @@ import jree.mongo_base.batch.BatchContext;
 import jree.mongo_base.MongoDetailsStore;
 import jree.mongo_base.MongoMessageStore;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
@@ -174,7 +176,7 @@ public class Test {
 
         long start = System.currentTimeMillis();
         Session<String , String> session2_x = pubSubSystem.sessionManager()
-                .openSession(2, 2592858883883676207l, new RelationController() {
+                .openSession(2, 506057065104278216l, new RelationController() {
                     @Override
                     public boolean validatePublishMessage(Session publisher, Recipient recipient, Relation relation) {
                         if(relation.getAttribute(publisher.clientId()+"_Block")!=null)
@@ -186,10 +188,28 @@ public class Test {
                     }
                 }, new MyEventListener("SSSSSS+_+_+_"));
 
+        Thread.sleep(1000);
+
+        ReadMessageCriteria<String> criteria = SimpleReadCriteria.builder(String.class).setRecipient(
+                RecipientImpl.clientRecipient(1)
+        ).setSession(session2_x).backward().setLength(2).from("z").build();
+
+        Iterable<PubMessage<String,String>> messages = pubSubSystem.messageManager()
+                .readMessages(criteria);
+
+        messages.forEach(System.err::println);
+
+        System.exit(1);
+
+
         System.out.println(System.currentTimeMillis()-start);
 
-        session2_x.subscribe(100);
 
+        session2_x.publishMessage(RecipientImpl.sessionRecipient(1, 4609018666203015031l), "Hello world" );
+        List<Recipient> recipients = session2_x.recipientsList();
+        System.out.println(recipients);
+
+        System.exit(1);
         //session2_x.setRelationProperties(RecipientImpl.clientRecipient(1) , "Block" , "TRUE");
 
 

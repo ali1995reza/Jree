@@ -1,19 +1,19 @@
 package jree.api;
 
-public class SimpleReadCriteria<ID> implements ReadMessageCriteria<ID> {
+public class SimpleReadCriteria<ID extends Comparable<ID>> implements ReadMessageCriteria<ID> {
 
-    public final static <ID> Builder<ID> builder()
+    public final static <ID extends Comparable<ID>> Builder<ID> builder(Class<ID> idType)
     {
         return new Builder<>();
     }
 
 
-    public final static class Builder<ID>{
+    public final static class Builder<ID extends Comparable<ID>>{
 
         private Session session;
         private Recipient recipient;
         private ID from;
-        private long length;
+        private int length;
         private boolean backward;
         private boolean containsDisposable;
 
@@ -33,7 +33,7 @@ public class SimpleReadCriteria<ID> implements ReadMessageCriteria<ID> {
             return setBackward(false);
         }
 
-        public Builder<ID> setLength(long length) {
+        public Builder<ID> setLength(int length) {
             this.length = length;
             return this;
         }
@@ -95,14 +95,14 @@ public class SimpleReadCriteria<ID> implements ReadMessageCriteria<ID> {
     private final Session session;
     private final Recipient recipient;
     private final ID from;
-    private final long length;
+    private final int length;
     private final boolean backward;
     private final boolean containsDisposable;
 
     public SimpleReadCriteria(Session session,
                               Recipient recipient,
                               ID from,
-                              long length,
+                              int length,
                               boolean backward, boolean containsDisposable) {
         this.session = session;
         this.recipient = recipient;
@@ -129,7 +129,7 @@ public class SimpleReadCriteria<ID> implements ReadMessageCriteria<ID> {
     }
 
     @Override
-    public long length() {
+    public int length() {
         return length;
     }
 

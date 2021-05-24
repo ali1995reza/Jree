@@ -8,7 +8,6 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
-import com.mongodb.internal.operation.OrderBy;
 import jree.abs.codes.FailReasonsCodes;
 import jree.abs.funcs.ForEach;
 import jree.abs.objects.PubMessageImpl;
@@ -21,16 +20,50 @@ import jree.mongo_base.batch.BatchContext;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
-import java.lang.reflect.Array;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.mongodb.client.model.Filters.*;
 import static com.mongodb.client.model.Updates.*;
 
 public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements MessageStore<BODY, ID> {
+
+    private final class MessageCriteriaReader implements ForEach<PubMessage<BODY,ID>> {
+
+        private final ForEach<PubMessage<BODY,ID>> wrapped;
+        private final List<ReadMessageCriteria<ID>> criteriaList;
+        private int index = 0;
+
+        private MessageCriteriaReader(ForEach<PubMessage<BODY, ID>> wrapped, List<ReadMessageCriteria<ID>> criteriaList) {
+            this.wrapped = wrapped;
+            this.criteriaList = criteriaList==null? Collections.emptyList():criteriaList;
+            done(null);
+        }
+
+        @Override
+        public void accept(PubMessage<BODY, ID> message) {
+            wrapped.accept(message);
+        }
+
+        @Override
+        public void done(Throwable e) {
+            if(e==null) {
+                if(criteriaList.size()==index) {
+                    wrapped.done(null);
+                } else {
+                    ReadMessageCriteria<ID> criteria = criteriaList.get(index++);
+                    doReadMessage(criteria, this);
+                }
+            } else {
+                wrapped.done(e);
+            }
+        }
+
+    }
+
 
     private final static UpdateOptions UPDATE_OPTIONS_WITH_UPSERT = new UpdateOptions().upsert(
             true);
@@ -114,28 +147,31 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         return document;
     }
 
-    @Override
-    public void readStoredMessageByCriteria(List<ReadMessageCriteria<String>> criteria, ForEach<PubMessage<BODY, ID>> forEach) {
-        messageCollection.find(
-                criteriaFilter(
-                        criteria)).forEach(
-                new Block<Document>() {
-                    @Override
-                    public void apply(Document document) {
-                        try {
-                            forEach.accept(
-                                    parseMessage(
-                                            document));
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+
+    private void doReadMessage(ReadMessageCriteria<ID> criteria, ForEach<PubMessage<BODY, ID>> forEach) {
+        messageCollection.find(criteriaFilter(criteria))
+                .sort(criteria.backward()?ID_SORT_REVERSE:ID_SORT)
+                .limit(criteria.length())
+                .forEach(d->{
+                    try {
+                        forEach.accept(
+                                parseMessage(d));
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                }, (v, t) -> {
+                }, (v,t)->{
                     forEach.done(t);
                 });
     }
 
+    @Override
+    public void readStoredMessageByCriteria(List<ReadMessageCriteria<ID>> criteria, ForEach<PubMessage<BODY, ID>> forEach) {
+        new MessageCriteriaReader(forEach, criteria);
+    }
+
     private final static Bson ID_SORT = new Document("_id" , 1);
+
+    private final static Bson ID_SORT_REVERSE = new Document("_id", -1);
 
     @Override
     public void readStoredMessage(Session session, ID offset, List<Long> conversations, ForEach<PubMessage<BODY, ID>> forEach) {
@@ -333,17 +369,41 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         String clientRecipientId = String.valueOf(client);
         String sessionRecipientId = String.valueOf(client).concat("_").concat(String.valueOf(session));
 
+        System.out.println(clientRecipientId);
+        System.out.println(sessionRecipientId);
+
+        final List<Recipient> recipients = new ArrayList<>();
+
         messageCollection.distinct("recipientIndex",String.class)
                 .filter(in("recipientIndex", clientRecipientId, sessionRecipientId))
                 .forEach(new Block<String>() {
                     @Override
                     public void apply(String s) {
-
+                        String[] split = s.split("_");
+                        if(split.length==1) {
+                            Long recipientClient = Long.parseLong(split[0]);
+                            if(recipientClient==client){
+                                return;
+                            }
+                            recipients.add(RecipientImpl.clientRecipient(recipientClient));
+                        } else {
+                            //2
+                            Long recipientClient = Long.parseLong(split[0]);
+                            Long recipientSession = Long.parseLong(split[1]);
+                            if(recipientClient==client){
+                                return;
+                            }
+                            recipients.add(RecipientImpl.sessionRecipient(recipientClient, recipientSession));
+                        }
                     }
                 }, new SingleResultCallback<Void>() {
                     @Override
                     public void onResult(Void unused, Throwable throwable) {
-
+                        if(throwable!=null) {
+                            callback.onFailed(new FailReason(throwable, FailReasonsCodes.RUNTIME_EXCEPTION));
+                        } else {
+                            callback.onSuccess(recipients);
+                        }
                     }
                 });
 
@@ -680,9 +740,18 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                                 subscribeList)));*/
     }
 
-    private final static Bson criteriaFilter(List<ReadMessageCriteria<String>> criteria) {
-        return new Document();
-    }
+    private Bson criteriaFilter(ReadMessageCriteria<ID> criteria) {
+        String id =
+                StaticFunctions.uniqueConversationId(criteria.session(), criteria.recipient());
+        Bson bson = eq("conversation", id);
+        if(criteria.backward()) {
+            bson = and(bson, lt("_id", criteria.from()), eq("disposable", criteria.containsDisposables()));
+        } else {
+            bson = and(bson, gt("_id", criteria.from()), eq("disposable", criteria.containsDisposables()));
+        }
+
+        return bson;
+     }
 
     @Deprecated
     public void numberOfMessages(String conversation, SingleResultCallback<Long> callback) {

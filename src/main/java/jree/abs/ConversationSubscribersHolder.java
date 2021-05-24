@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
+import java.util.List;
 
 final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
 
@@ -47,10 +48,13 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
     }
 
     public ConversationSubscribersHolder<BODY, ID> addSubscriber(
-            Iterable<Long> conversations,
+            List<Long> conversations,
             SessionImpl<BODY, ID> session,
             OperationResultListener<Boolean> callback
     ) {
+        if(conversations==null || conversations.isEmpty()){
+            callback.onSuccess(true);
+        }
         String sql = "INSERT INTO " + tableName + " VALUES " + commaSplitString(
                 conversations, session);
 
@@ -60,7 +64,7 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
     }
 
     public ConversationSubscribersHolder<BODY, ID> addSubscriber(
-            Iterable<Long> conversations,
+            List<Long> conversations,
             SessionImpl<BODY, ID> session
     ) {
         AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();

@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface MessageStore<BODY, ID extends Comparable<ID>> {
 
-    void readStoredMessageByCriteria(List<ReadMessageCriteria<String>> criteria, ForEach<PubMessage<BODY, ID>> forEach);
+    void readStoredMessageByCriteria(List<ReadMessageCriteria<ID>> criteria, ForEach<PubMessage<BODY, ID>> forEach);
 
     void readStoredMessage(Session session , ID offset , List<Long> conversations , ForEach<PubMessage<BODY,ID>> forEach);
 
