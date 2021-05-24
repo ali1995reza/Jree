@@ -27,5 +27,7 @@ public interface MessageStore<BODY, ID extends Comparable<ID>> {
 
     void setTag(Session session, Recipient recipient, InsertTag tag, OperationResultListener<Tag> result);
 
+    void getRecipientsList(long client, long session, OperationResultListener<List<Recipient>> callback);
+
     void close();
 }

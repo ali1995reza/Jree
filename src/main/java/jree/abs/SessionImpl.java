@@ -356,6 +356,18 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         return asyncToSync.getResult();
     }
 
+    @Override
+    public List<Recipient> recipientsList() {
+        AsyncToSync<List<Recipient>> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        recipientsList(asyncToSync);
+        return asyncToSync.getResult();
+    }
+
+    @Override
+    public void recipientsList(OperationResultListener<List<Recipient>> callback) {
+        messageStore.getRecipientsList(clientId, sessionId, callback);
+    }
+
     public void onMessagePublished(PubMessage message) {
         if (pubMessages != null) {
             synchronized (pubMessages) {

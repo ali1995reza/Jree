@@ -329,6 +329,27 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
     }
 
     @Override
+    public void getRecipientsList(long client, long session, OperationResultListener<List<Recipient>> callback) {
+        String clientRecipientId = String.valueOf(client);
+        String sessionRecipientId = String.valueOf(client).concat("_").concat(String.valueOf(session));
+
+        messageCollection.distinct("recipientIndex",String.class)
+                .filter(in("recipientIndex", clientRecipientId, sessionRecipientId))
+                .forEach(new Block<String>() {
+                    @Override
+                    public void apply(String s) {
+
+                    }
+                }, new SingleResultCallback<Void>() {
+                    @Override
+                    public void onResult(Void unused, Throwable throwable) {
+
+                    }
+                });
+
+    }
+
+    @Override
     public void close() {
     }
 

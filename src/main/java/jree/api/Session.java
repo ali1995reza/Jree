@@ -54,4 +54,8 @@ public interface Session<BODY, ID> extends Attachable {
     void subscribeList(OperationResultListener<List<Long>> callback);
 
     List<Long> subscribeList();
+
+    List<Recipient> recipientsList();
+
+    void recipientsList(OperationResultListener<List<Recipient>> callback);
 }
