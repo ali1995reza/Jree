@@ -50,11 +50,6 @@ public class Test {
         }
 
         @Override
-        public void preInitialize(SessionContext context) {
-
-        }
-
-        @Override
         public void onInitialized(SessionContext context) {
 
         }
@@ -80,11 +75,6 @@ public class Test {
 
         @Override
         public void onSignalReceived(SessionContext context, Signal signal) {
-
-        }
-
-        @Override
-        public void preInitialize(SessionContext context) {
 
         }
 

@@ -121,10 +121,6 @@ public class WebSocketServerModel {
                             }
 
                             @Override
-                            public void preInitialize(SessionContext context) {
-                            }
-
-                            @Override
                             public void onInitialized(SessionContext context) {
                             }
 

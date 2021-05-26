@@ -14,13 +14,17 @@ public abstract class Step <PREVIOUS_PROVIDED_STEP_TYPE, CURRENT_STEP_TYPE, PROV
         this.next = next;
     }
 
-    public final void execute(PREVIOUS_PROVIDED_STEP_TYPE lastResult) {
-        doExecute(lastResult, this);
+    public final void execute(PREVIOUS_PROVIDED_STEP_TYPE providedValue) {
+        doExecute(providedValue, this);
     }
 
-    public abstract void doExecute(PREVIOUS_PROVIDED_STEP_TYPE providedValue, OperationResultListener<CURRENT_STEP_TYPE> target);
+    public final void execute() {
+        doExecute(null, this);
+    }
 
-    public abstract PROVIDE_TO_NEXT_STEP_TYPE finished(CURRENT_STEP_TYPE result);
+    protected abstract void doExecute(PREVIOUS_PROVIDED_STEP_TYPE providedValue, OperationResultListener<CURRENT_STEP_TYPE> target);
+
+    protected abstract PROVIDE_TO_NEXT_STEP_TYPE finished(CURRENT_STEP_TYPE result);
 
     @Override
     public final void onSuccess(CURRENT_STEP_TYPE result) {

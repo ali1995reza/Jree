@@ -29,7 +29,7 @@ public abstract class RawTypeProviderStep<F, T> extends Step<F , T , T> {
 
 
     @Override
-    public final T finished(T result) {
+    protected final T finished(T result) {
         return result;
     }
 }
