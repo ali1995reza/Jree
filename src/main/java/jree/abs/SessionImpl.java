@@ -8,6 +8,8 @@ import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
 import jree.abs.parts.MessageStore;
 import jree.api.*;
+import jree.async.RawTypeProviderStep;
+import jree.async.StepByStep;
 import jree.util.Assertion;
 
 import java.time.Instant;
@@ -86,7 +88,12 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     @Override
     public void publishMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         assertIfClosed();
-        cache.checkExistenceAndGetRelation(this, recipient, new OperationResultListener<Relation>() {
+        StepByStep.start(new GetRelationStep())
+                .then(new ValidationAndStoreMessageStep(message, recipient, false))
+                .then(new AfterMessageSuccessfullyStored())
+                .finish(callback);
+
+        /*cache.checkExistenceAndGetRelation(this, recipient, new OperationResultListener<Relation>() {
             @Override
             public void onSuccess(Relation relation) {
                 try {
@@ -116,7 +123,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             public void onFailed(FailReason reason) {
                 callback.onFailed(reason);
             }
-        });
+        });*/
     }
 
     @Override
@@ -457,5 +464,65 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public String toString() {
         return "MongoSession{" + "clientId=" + clientId + ", sessionId=" + sessionId + '}';
     }
+
+
+
+    //------------------------------ shared steps ----------------------------------------
+
+
+    private final class GetRelationStep extends RawTypeProviderStep<Recipient, Relation> {
+
+        @Override
+        public void doExecute(Recipient providedValue, OperationResultListener<Relation> target) {
+            cache.checkExistenceAndGetRelation(SessionImpl.this, providedValue, target);
+        }
+    }
+
+
+    //-------------------------------------------------------------------------------------
+
+
+    //----------------------------- publish message steps ---------------------------------
+    private final class ValidationAndStoreMessageStep extends RawTypeProviderStep<Relation, PubMessage<BODY,ID>> {
+
+        private final BODY message;
+        private final Recipient recipient;
+        private final boolean disposable;
+
+        private ValidationAndStoreMessageStep(BODY message, Recipient recipient, boolean disposable) {
+            this.message = message;
+            this.recipient = recipient;
+            this.disposable = disposable;
+        }
+
+        @Override
+        public void doExecute(Relation relation, OperationResultListener<PubMessage<BODY, ID>> target) {
+            try {
+                if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
+                    target.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
+                    return;
+                }
+            } catch (Throwable e) {
+                target.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
+                return;
+            }
+            PubMessageImpl<BODY, ID> pubMessage = new PubMessageImpl<>(idIdBuilder.newId(), message, Instant.now(), SessionImpl.this, recipient);
+            if(disposable) {
+                messageStore.storeAsDisposableMessage(pubMessage, target);
+            } else {
+                messageStore.storeMessage(pubMessage, target);
+            }
+        }
+    }
+
+    private final class AfterMessageSuccessfullyStored extends RawTypeProviderStep< PubMessage<BODY,ID>, PubMessage<BODY,ID>> {
+
+        @Override
+        public void doExecute(PubMessage<BODY, ID> providedValue, OperationResultListener<PubMessage<BODY, ID>> target) {
+            onPublishedMessageStoredSuccessfully(providedValue, target);
+        }
+    }
+    //----------------------------------------------------------------------------------------
+
 
 }
