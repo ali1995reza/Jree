@@ -28,6 +28,8 @@ import java.util.List;
 
 import static com.mongodb.client.model.Filters.*;
 import static com.mongodb.client.model.Updates.*;
+import static jree.mongo_base.CollectionNames.*;
+import static jree.mongo_base.StaticFiltersOptionsSorts.*;
 
 public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements MessageStore<BODY, ID> {
 
@@ -65,24 +67,19 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
     }
 
 
-    private final static UpdateOptions UPDATE_OPTIONS_WITH_UPSERT = new UpdateOptions().upsert(
-            true);
 
-    private final static String CONVERSATION_COLLECTION_NAME = "MSG_COUNTER";
-    private final static String MESSAGE_COLLECTION_NAME = "MSG";
 
-    private final AsyncMongoDatabase database;
-    private final AsyncMongoCollection<Document> messageCollection;
-    private final AsyncMongoCollection<Document> conversationCollection;
-    private final BatchContext batchContext;
+
+    //private final AsyncMongoDatabase database;
+    private final CollectionInfo messageCollection;
+    private final CollectionInfo conversationCollection;
+    //private final BatchContext batchContext;
 
     public MongoMessageStore(AsyncMongoDatabase database, BatchContext batchContext) {
-        this.database = database;
-        this.batchContext = batchContext;
-        messageCollection = this.database.getCollection(
-                MESSAGE_COLLECTION_NAME);
-        conversationCollection = this.database.getCollection(
-                CONVERSATION_COLLECTION_NAME);
+        //this.database = database;
+        //this.batchContext = batchContext;
+        messageCollection = new CollectionInfo(MESSAGE_COLLECTION_NAME, database);
+        conversationCollection = new CollectionInfo(CONVERSATION_COLLECTION_NAME, database);
 
         /*DBStaticFunctions.createIndex(
                 messageCollection,
@@ -113,27 +110,18 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                 )
         );*/
 
-        DBStaticFunctions.createIndex(messageCollection ,
+        DBStaticFunctions.createIndex(messageCollection.collection() ,
                 Indexes.ascending(
                         "recipientIndex" ,
                         "_id"
                 ));
 
-        DBStaticFunctions.createIndex(messageCollection,
+        DBStaticFunctions.createIndex(messageCollection.collection(),
                 Indexes.ascending("conversation"));
 
-        this.batchContext.createNewUpdateBatch(
-                "message",
-                messageCollection, 2000,
-                150);
-        this.batchContext.createNewInsertBatch(
-                "message",
-                messageCollection, 2000,
-                100);
-        this.batchContext.createNewFindBatch(
-                "conversation",
-                conversationCollection,
-                1000, 100);
+        batchContext.createNewUpdateBatch(messageCollection, 2000, 150);
+        batchContext.createNewInsertBatch(messageCollection, 2000, 100);
+        batchContext.createNewFindBatch(conversationCollection, 1000, 100);
     }
 
     public Document convertRecipient(Recipient recipient) {
@@ -149,7 +137,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
 
 
     private void doReadMessage(ReadMessageCriteria<ID> criteria, ForEach<PubMessage<BODY, ID>> forEach) {
-        messageCollection.find(criteriaFilter(criteria))
+        messageCollection.collection().find(criteriaFilter(criteria))
                 .sort(criteria.backward()?ID_SORT_REVERSE:ID_SORT)
                 .limit(criteria.length())
                 .forEach(d->{
@@ -169,14 +157,12 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         new MessageCriteriaReader(forEach, criteria);
     }
 
-    private final static Bson ID_SORT = new Document("_id" , 1);
 
-    private final static Bson ID_SORT_REVERSE = new Document("_id", -1);
 
     @Override
     public void readStoredMessage(Session session, ID offset, List<Long> conversations, ForEach<PubMessage<BODY, ID>> forEach) {
 
-        messageCollection.find(
+        messageCollection.collection().find(
                 fullMessageQuery(session , offset , conversations)
         ).sort(ID_SORT).forEach(
                 d->forEach.accept(parseMessage(d)) ,
@@ -186,7 +172,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         if(Boolean.TRUE)
             return;
 
-        messageCollection.find(
+        messageCollection.collection().find(
                 sessionToSessionFilter(offset , session)).sort(ID_SORT).forEach(
                 new Block<Document>() {
                     @Override
@@ -203,7 +189,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                     if(t!=null) {
                         forEach.done(t);
                     }else {
-                        messageCollection.find(
+                        messageCollection.collection().find(
                                 clientToClientFilter(offset , session)).sort(ID_SORT).forEach(
                                 new Block<Document>() {
                                     @Override
@@ -220,7 +206,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                                     if(t1!=null) {
                                         forEach.done(t1);
                                     }else {
-                                        messageCollection.find(
+                                        messageCollection.collection().find(
                                                 clientToConversationFilter(offset , conversations)).sort(ID_SORT).forEach(
                                                 new Block<Document>() {
                                                     @Override
@@ -243,7 +229,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
     }
 
     public void addConversation(final long conversation, OperationResultListener<Long> callback) {
-        conversationCollection.updateOne(
+        conversationCollection.collection().updateOne(
                 eq("_id", conversation),
                 setOnInsert("dump",
                         true),
@@ -278,8 +264,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
 
     @Override
     public void isConversationExists(long conversation, OperationResultListener<Boolean> callback) {
-        batchContext.getFindBatch(
-                "conversation")
+        conversationCollection.findByIdBatch()
                 .findOne(conversation,
                         new SingleResultCallback<Document>() {
                             @Override
@@ -336,8 +321,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                 "client",
                 session.clientId()).append(
                 "time", now);
-        batchContext.getUpdateBatch(
-                "message").updateMany(
+        messageCollection.updateBatch().updateMany(
                 and(eq("conversation",
                         conversation),
                         gte("_id",
@@ -374,7 +358,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
 
         final List<Recipient> recipients = new ArrayList<>();
 
-        messageCollection.distinct("recipientIndex",String.class)
+        messageCollection.collection().distinct("recipientIndex",String.class)
                 .filter(in("recipientIndex", clientRecipientId, sessionRecipientId))
                 .forEach(new Block<String>() {
                     @Override
@@ -414,23 +398,20 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
     }
 
     public void isConversationExists(long conversation, SingleResultCallback<Boolean> callback) {
-        conversationCollection.find(
-                eq("_id",
-                        conversation)).first(
-                new SingleResultCallback<Document>() {
-                    @Override
-                    public void onResult(Document document, Throwable throwable) {
-                        if (throwable != null) {
-                            callback.onResult(
-                                    null,
-                                    throwable);
-                        } else {
-                            callback.onResult(
-                                    document != null,
-                                    null);
-                        }
-                    }
-                });
+        conversationCollection.findByIdBatch().findOne(conversation, new SingleResultCallback<Document>() {
+            @Override
+            public void onResult(Document document, Throwable throwable) {
+                if (throwable != null) {
+                    callback.onResult(
+                            null,
+                            throwable);
+                } else {
+                    callback.onResult(
+                            document != null,
+                            null);
+                }
+            }
+        });
     }
 
     private void doUpdateMessage(Session editor, Recipient recipient, ID messageId, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
@@ -459,7 +440,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                     eq("publisher.client",
                             editor.clientId()));
         }
-        messageCollection.findOneAndUpdate(
+        messageCollection.collection().findOneAndUpdate(
                 filter, update,
                 new SingleResultCallback<Document>() {
                     @Override
@@ -508,7 +489,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                     eq("publisher.client",
                             remover.clientId()));
         }
-        messageCollection.findOneAndDelete(
+        messageCollection.collection().findOneAndDelete(
                 filter,
                 new SingleResultCallback<Document>() {
                     @Override
@@ -576,8 +557,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                         message.publisher().client()).append(
                         "session",
                         message.publisher().session()));
-        batchContext.getInsertBatch(
-                "message").insertOne(
+        messageCollection.insertBatch().insertOne(
                 messageDocument,
                 new SingleResultCallback<Document>() {
                     @Override
@@ -666,7 +646,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
     }
 
     public void setTagOnMessages(Session session, Recipient recipient, Tag tag, long from, long lastIndex, SingleResultCallback<UpdateResult> callback) {
-        messageCollection.updateMany(
+        messageCollection.collection().updateMany(
                 and(messageEquality(
                         session,
                         recipient),
@@ -753,11 +733,5 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         return bson;
      }
 
-    @Deprecated
-    public void numberOfMessages(String conversation, SingleResultCallback<Long> callback) {
-        database.getCollection(
-                conversation).countDocuments(
-                callback);
-    }
 
 }

@@ -2,6 +2,7 @@ package jree.async;
 
 import jree.api.FailReason;
 import jree.api.OperationResultListener;
+import jree.util.Assertion;
 
 public abstract class Step <PREVIOUS_PROVIDED_STEP_TYPE, CURRENT_STEP_TYPE, PROVIDE_TO_NEXT_STEP_TYPE> implements OperationResultListener<CURRENT_STEP_TYPE> {
 
@@ -10,15 +11,17 @@ public abstract class Step <PREVIOUS_PROVIDED_STEP_TYPE, CURRENT_STEP_TYPE, PROV
     public Step() {
     }
 
-    public void setNext(OperationResultListener<PROVIDE_TO_NEXT_STEP_TYPE> next) {
+    final void setNext(OperationResultListener<PROVIDE_TO_NEXT_STEP_TYPE> next) {
+        Assertion.ifNotNull("setting next step on a disposed step", this.next);
+        Assertion.ifNull("next step is null" , next);
         this.next = next;
     }
 
-    public final void execute(PREVIOUS_PROVIDED_STEP_TYPE providedValue) {
+    final void execute(PREVIOUS_PROVIDED_STEP_TYPE providedValue) {
         doExecute(providedValue, this);
     }
 
-    public final void execute() {
+    final void execute() {
         doExecute(null, this);
     }
 
@@ -35,7 +38,7 @@ public abstract class Step <PREVIOUS_PROVIDED_STEP_TYPE, CURRENT_STEP_TYPE, PROV
         if(next instanceof Step) {
             ((Step<PROVIDE_TO_NEXT_STEP_TYPE, ? , ?>) next).execute(t);
         } else {
-            next.onSuccess(finished(result));
+            next.onSuccess(t);
         }
     }
 

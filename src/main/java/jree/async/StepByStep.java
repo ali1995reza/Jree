@@ -8,24 +8,24 @@ public class StepByStep<FT, F , NT , LT> {
         return new StepByStep<>(firstStep);
     }
 
-    private final Step<F, ? , NT> firstStep;
+    private final ExecutableStep<FT> executableStep;
     private Step currentStep;
 
-    private StepByStep(Step<F, ? ,NT> firstStep) {
-        this.firstStep = firstStep;
+    private StepByStep(Step<FT, ? ,LT> firstStep) {
+        this.executableStep = new ExecutableStep<>(firstStep);
         this.currentStep = firstStep;
     }
 
-    public <NT, NNT> StepByStep<FT, NT, NNT, LT> then(Step<NT, ? , NNT> then) {
+    public <NNT> StepByStep<FT, NT, NNT, LT> then(Step<NT, ? , NNT> then) {
         currentStep.setNext(then);
         this.currentStep = then;
         return (StepByStep<FT , NT, NNT, LT>) this;
     }
 
-    public Step<FT, ? , LT> finish(OperationResultListener<NT> lastCallback) {
+    public ExecutableStep<FT> finish(OperationResultListener<NT> lastCallback) {
         currentStep.setNext(lastCallback);
         this.currentStep = null;
-        return (Step<FT, ?, LT>) firstStep;
+        return executableStep;
     }
 
 }
