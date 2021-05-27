@@ -2,50 +2,43 @@ package jree.async;
 
 import jree.api.FailReason;
 import jree.api.OperationResultListener;
+import jree.util.Assertion;
 
-public abstract class Step <F,T> implements OperationResultListener<F> {
+public abstract class Step <PREVIOUS_PROVIDED_STEP_TYPE, CURRENT_STEP_TYPE, PROVIDE_TO_NEXT_STEP_TYPE> implements OperationResultListener<CURRENT_STEP_TYPE> {
 
-    private OperationResultListener<T> next;
-    private Step firstStep;
-
-    private Step(Step firstStep) {
-        this.firstStep = firstStep==null?this:firstStep;
-    }
+    private OperationResultListener<PROVIDE_TO_NEXT_STEP_TYPE> next;
 
     public Step() {
-        this(null);
     }
 
-    public <NT> Step<T,NT> then(Step<T,NT> next) {
-        next.firstStep = firstStep;
+    final void setNext(OperationResultListener<PROVIDE_TO_NEXT_STEP_TYPE> next) {
+        Assertion.ifNotNull("setting next step on a disposed step", this.next);
+        Assertion.ifNull("next step is null" , next);
         this.next = next;
-        return next;
     }
 
-    public <RF,RT> Step<RF,RT> finish(OperationResultListener<T> resultListener) {
-        this.next = resultListener;
-        return firstStep;
+    final void execute(PREVIOUS_PROVIDED_STEP_TYPE providedValue) {
+        doExecute(providedValue, this);
     }
 
-    public <RF,RT> Step<RF,RT> finish() {
-        return firstStep;
+    final void execute() {
+        doExecute(null, this);
     }
 
+    protected abstract void doExecute(PREVIOUS_PROVIDED_STEP_TYPE providedValue, OperationResultListener<CURRENT_STEP_TYPE> target);
 
-    public abstract void execute(F from);
-
-    public abstract T finished(F f);
+    protected abstract PROVIDE_TO_NEXT_STEP_TYPE finished(CURRENT_STEP_TYPE result);
 
     @Override
-    public final void onSuccess(F result) {
-        T t = finished(result);
+    public final void onSuccess(CURRENT_STEP_TYPE result) {
+        PROVIDE_TO_NEXT_STEP_TYPE t = finished(result);
         if(next==null)
             return;
 
         if(next instanceof Step) {
-            ((Step<T, ?>) next).execute(t);
+            ((Step<PROVIDE_TO_NEXT_STEP_TYPE, ? , ?>) next).execute(t);
         } else {
-            next.onSuccess(finished(result));
+            next.onSuccess(t);
         }
     }
 

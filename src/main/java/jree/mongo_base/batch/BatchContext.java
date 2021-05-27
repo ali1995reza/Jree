@@ -2,6 +2,7 @@ package jree.mongo_base.batch;
 
 import com.mongodb.Function;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
+import jree.mongo_base.CollectionInfo;
 import org.bson.BsonValue;
 import org.bson.Document;
 
@@ -11,10 +12,10 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class BatchContext {
 
-    private final Map<String, UpdateBatch> updateBatches = new ConcurrentHashMap<>();
-    private final Map<String, InsertBatch> insertBatches = new ConcurrentHashMap<>();
-    private final Map<String, FindByIdBatch> findBatches = new ConcurrentHashMap<>();
-    private final Map<String, UpsertBatch> upsertBatches = new ConcurrentHashMap<>();
+    private final Map<Object, UpdateBatch> updateBatches = new ConcurrentHashMap<>();
+    private final Map<Object, InsertBatch> insertBatches = new ConcurrentHashMap<>();
+    private final Map<Object, FindByIdBatch> findBatches = new ConcurrentHashMap<>();
+    private final Map<Object, UpsertBatch> upsertBatches = new ConcurrentHashMap<>();
     private final ScheduledExecutorService executorService;
 
     public BatchContext(ScheduledExecutorService executorService) {
@@ -22,51 +23,69 @@ public class BatchContext {
     }
 
 
-    public synchronized UpdateBatch createNewUpdateBatch(String name, AsyncMongoCollection<Document> collection, int size, int timeout) {
-        if (updateBatches.containsKey(name))
+    public synchronized UpdateBatch createNewUpdateBatch(Object key, AsyncMongoCollection<Document> collection, int size, int timeout) {
+        if (updateBatches.containsKey(key))
             throw new IllegalStateException("this batch already exists");
 
         UpdateBatch updateBatch = new UpdateBatch(
                 collection, executorService, size, timeout
         );
-        updateBatches.put(name, updateBatch);
+        updateBatches.put(key, updateBatch);
 
         return updateBatch;
 
     }
 
-    public synchronized InsertBatch createNewInsertBatch(String name, AsyncMongoCollection<Document> collection, int size, int timeout) {
-        if (insertBatches.containsKey(name))
+    public synchronized UpdateBatch createNewUpdateBatch(CollectionInfo info, int size, int timeout) {
+        UpdateBatch batch = createNewUpdateBatch(info, info.collection(), size, timeout);
+        info.setUpdateBatch(batch);
+        return batch;
+    }
+
+    public synchronized InsertBatch createNewInsertBatch(Object key, AsyncMongoCollection<Document> collection, int size, int timeout) {
+        if (insertBatches.containsKey(key))
             throw new IllegalStateException("this batch already exists");
 
         InsertBatch insertBatch = new InsertBatch(
                 collection, executorService, size, timeout
         );
-        insertBatches.put(name, insertBatch);
+        insertBatches.put(key, insertBatch);
 
         return insertBatch;
 
     }
 
-    public synchronized <T> FindByIdBatch<T> createNewFindBatch(String name, AsyncMongoCollection<Document> collection, int size, int timeout) {
-        if (findBatches.containsKey(name))
+    public synchronized InsertBatch createNewInsertBatch(CollectionInfo info, int size, int timeout) {
+        InsertBatch batch = createNewInsertBatch(info, info.collection(), size, timeout);
+        info.setInsertBatch(batch);
+        return batch;
+    }
+
+    public synchronized <T> FindByIdBatch<T> createNewFindBatch(Object key, AsyncMongoCollection<Document> collection, int size, int timeout) {
+        if (findBatches.containsKey(key))
             throw new IllegalStateException("this batch already exists");
 
         FindByIdBatch<T> findBatch = new FindByIdBatch<>(collection, executorService, size, timeout);
 
-        findBatches.put(name, findBatch);
+        findBatches.put(key, findBatch);
 
         return findBatch;
     }
 
+    public synchronized <T> FindByIdBatch<T> createNewFindBatch(CollectionInfo info, int size, int timeout) {
+        FindByIdBatch<T> batch = createNewFindBatch(info, info.collection(), size, timeout);
+        info.setFindByIdBatch(batch);
+        return batch;
+    }
 
-    public synchronized <T> UpsertBatch<T> createNewUpsertBatch(String name,
+
+    public synchronized <T> UpsertBatch<T> createNewUpsertBatch(Object key,
                                                                 AsyncMongoCollection<Document> collection,
                                                                 Function<BsonValue, T> valueFetcher,
                                                                 int size,
                                                                 int timeout) {
 
-        if (upsertBatches.containsKey(name))
+        if (upsertBatches.containsKey(key))
             throw new IllegalStateException("this batch already exists");
 
         UpsertBatch<T> upsertBatch = new UpsertBatch<>(
@@ -77,24 +96,34 @@ public class BatchContext {
                 timeout
         );
 
-        upsertBatches.put(name, upsertBatch);
+        upsertBatches.put(key, upsertBatch);
 
         return upsertBatch;
     }
 
-    public UpdateBatch getUpdateBatch(String name) {
-        return updateBatches.get(name);
+    public synchronized <T> UpsertBatch<T> createNewUpsertBatch(CollectionInfo info,
+                                                                Function<BsonValue, T> valueFetcher,
+                                                                int size,
+                                                                int timeout) {
+
+        UpsertBatch<T> upsertBatch = createNewUpsertBatch(info, info.collection(), valueFetcher, size, timeout);
+        info.setUpsertBatch(upsertBatch);
+        return upsertBatch;
     }
 
-    public InsertBatch getInsertBatch(String name) {
-        return insertBatches.get(name);
+    public UpdateBatch getUpdateBatch(Object key) {
+        return updateBatches.get(key);
     }
 
-    public <T> FindByIdBatch<T> getFindBatch(String name) {
-        return findBatches.get(name);
+    public InsertBatch getInsertBatch(Object key) {
+        return insertBatches.get(key);
     }
 
-    public <T> UpsertBatch<T> getUpsertBatch(String name){
-        return upsertBatches.get(name);
+    public <T> FindByIdBatch<T> getFindBatch(Object key) {
+        return findBatches.get(key);
+    }
+
+    public <T> UpsertBatch<T> getUpsertBatch(Object key){
+        return upsertBatches.get(key);
     }
 }

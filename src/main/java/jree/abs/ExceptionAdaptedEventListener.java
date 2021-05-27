@@ -1,10 +1,7 @@
 package jree.abs;
 
-import jree.api.PubMessage;
-import jree.api.SessionContext;
-import jree.api.Signal;
+import jree.api.*;
 import jree.util.Assertion;
-import jree.api.SessionEventListener;
 
 final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListener<BODY, ID> {
 
@@ -32,16 +29,6 @@ final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListe
         try {
             wrapped.onSignalReceived(context, signal);
         }catch (Throwable e){
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public void preInitialize(SessionContext context) {
-        try{
-            wrapped.preInitialize(context);
-        }catch (Throwable e)
-        {
             e.printStackTrace();
         }
     }
