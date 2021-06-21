@@ -30,7 +30,7 @@ public class ChatView {
 
     public void clear() {
         panel.removeAll();
-        panel.validate();
+        scrollPane.validate();
     }
 
     public Component getComponent() {
@@ -50,6 +50,8 @@ public class ChatView {
 
     private final static class ChatViewLayoutManger implements LayoutManager {
 
+        int height = 0;
+
         @Override
         public void addLayoutComponent(String name, Component comp) {
         }
@@ -60,7 +62,7 @@ public class ChatView {
 
         @Override
         public Dimension preferredLayoutSize(Container parent) {
-            return new Dimension(0,0);
+            return new Dimension(0,height);
         }
 
         @Override
@@ -100,6 +102,8 @@ public class ChatView {
 
                 heightOffset += currentHeight+10;
             }
+
+            height = heightOffset;
         }
 
     }

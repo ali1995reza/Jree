@@ -1,6 +1,8 @@
 package jree.client_server.client.ui.framework;
 
 import java.awt.*;
+import java.util.List;
+import java.util.Random;
 
 public class MainChatView {
 
@@ -73,7 +75,17 @@ public class MainChatView {
             }
         });
 
-        peoples.setPeopleChangeEventListener(p->this.selectedPeople = p);
+        peoples.setPeopleChangeEventListener(p->{
+            this.selectedPeople = p;
+            List<String> list = eventListener.getLastMessages(p);
+            Random random = new Random();
+            chatViewWithEditText.getChatView().clear();
+            for(String s:list) {
+                chatViewWithEditText
+                        .getChatView()
+                        .addMessage(s, random.nextBoolean());
+            }
+        });
     }
 
     public void setEventListener(ChatMenuEventListener eventListener) {
