@@ -353,9 +353,6 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         String clientRecipientId = String.valueOf(client);
         String sessionRecipientId = String.valueOf(client).concat("_").concat(String.valueOf(session));
 
-        System.out.println(clientRecipientId);
-        System.out.println(sessionRecipientId);
-
         final List<Recipient> recipients = new ArrayList<>();
 
         messageCollection.collection().distinct("recipientIndex",String.class)

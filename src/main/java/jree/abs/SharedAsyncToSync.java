@@ -11,8 +11,7 @@ final class SharedAsyncToSync {
     }
 
 
-    private final ThreadLocal<AsyncToSync> threadLocal = new ThreadLocal<>(
-    );
+    private final ThreadLocal<AsyncToSync> threadLocal = new ThreadLocal<>();
 
 
     public AsyncToSync get()
