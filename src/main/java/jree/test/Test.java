@@ -55,6 +55,10 @@ public class Test {
         }
 
         @Override
+        public void onClosing(SessionContext context) {
+        }
+
+        @Override
         public void onClosedByException(SessionContext context, Throwable exception) {
 
         }
@@ -81,6 +85,10 @@ public class Test {
         @Override
         public void onInitialized(SessionContext context) {
 
+        }
+
+        @Override
+        public void onClosing(SessionContext context) {
         }
 
         @Override

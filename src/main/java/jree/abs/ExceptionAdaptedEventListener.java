@@ -44,6 +44,16 @@ final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListe
     }
 
     @Override
+    public void onClosing(SessionContext context) {
+        try {
+            wrapped.onClosing(context);
+        }catch (Throwable e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
     public void onClosedByException(SessionContext context ,Throwable exception) {
         try{
             wrapped.onClosedByException(context , exception);

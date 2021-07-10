@@ -31,6 +31,7 @@ public class LoginSignupHandler {
     private final MongoCollection<Document> users;
     private final MessageDigest sha256;
     private final Algorithm jwtAlgorithm = Algorithm.HMAC512("some_secret");
+    private final JWTVerifier verifier =JWT.require(jwtAlgorithm).build();
 
     public LoginSignupHandler(MongoDatabase database) {
         users = database.getCollection("users");
@@ -84,11 +85,21 @@ public class LoginSignupHandler {
     }
 
     public Long[] verifyToken(String token) {
-        JWTVerifier verifier = JWT.require(jwtAlgorithm).build();
         DecodedJWT jwt = verifier.verify(token);
         Claim clientId = jwt.getClaim("clientId");
         Claim sessionId = jwt.getClaim("sessionId");
         return new Long[]{clientId.asLong(), sessionId.asLong()};
+    }
+
+
+    public Long getClientIdFromUsername(String username) {
+        Document document =
+                users.find(eq("username", hash(username)))
+                .first();
+        if(document==null)
+            return null;
+
+        return document.getLong("clientId");
     }
 
 

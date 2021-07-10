@@ -8,6 +8,8 @@ public interface SessionEventListener<BODY, ID> {
 
     void onInitialized(SessionContext context);
 
+    void onClosing(SessionContext context);
+
     void onClosedByException(SessionContext context, Throwable exception);
 
     void onCloseByCommand(SessionContext context);

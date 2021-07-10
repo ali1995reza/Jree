@@ -140,7 +140,7 @@ public class JreeServer {
                             public void onMessagePublished(SessionContext context, PubMessage<String, String> message) {
                                 try {
                                     user.getRemote().sendString(message.toString());
-                                    context.currentSession().setMessageOffset(message.id());
+                                    context.currentSession().attach(message.id());
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 }
@@ -158,6 +158,12 @@ public class JreeServer {
 
                             @Override
                             public void onInitialized(SessionContext context) {
+                            }
+
+                            @Override
+                            public void onClosing(SessionContext context) {
+                                context.currentSession()
+                                        .setMessageOffset(context.currentSession().attachment());
                             }
 
                             @Override
@@ -202,7 +208,20 @@ public class JreeServer {
                         e.printStackTrace();
                     }
                 }
-            } /*else if(command.equalsIgnoreCase("remove")) {
+            } else if(command.equalsIgnoreCase("publish2")){
+
+                String username = jsonObject.getString("username");
+                Long id = loginSignupHandler.getClientIdFromUsername(username);
+
+                if(id==null)
+                    return;
+
+                String message = jsonObject.getString("message");
+
+                users.get(user)
+                        .publishMessage(RecipientImpl.clientRecipient(id) ,
+                                message);
+            }/*else if(command.equalsIgnoreCase("remove")) {
                 boolean b = pubSubSystem.sessionManager()
                         .removeClient(users.get(user).clientId());
                 System.out.println(b);

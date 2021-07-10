@@ -462,6 +462,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             ClientsHolder.RemoveSessionResult result = holder.removeSession(this);
             if(!result.isRemoved())
                 throw new IllegalStateException("can not remove session - FATAL");
+            listener.onClosing(this);
             closed = true;
             if(result.isLastSession()) {
                 removeSubscriptions();
@@ -478,6 +479,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             ClientsHolder.RemoveSessionResult result = holder.removeSession(this);
             if(!result.isRemoved())
                 throw new IllegalStateException("can not remove session - FATAL");
+            listener.onClosing(this);
             closed = true;
             if(result.isLastSession()) {
                 removeSubscriptions();
