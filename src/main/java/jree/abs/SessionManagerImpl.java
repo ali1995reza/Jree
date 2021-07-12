@@ -7,9 +7,11 @@ import jree.abs.funcs.ForEach;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
+import jree.abs.parts.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.abs.utils.StaticFunctions;
 import jree.api.*;
+import jree.async.ExtraStep;
 import jree.async.RawTypeProviderStep;
 import jree.async.StepByStep;
 
@@ -19,6 +21,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     private final MessageStore<BODY, ID> messageStore;
     private final DetailsStore<ID> detailsStore;
+    private final Interceptor<BODY, ID> interceptor;
     private final ClientsHolder clients;
     private final ConversationSubscribersHolder<BODY, ID> subscribers;
     private final RelationAndExistenceCache<ID> cache;
@@ -26,9 +29,10 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
     private boolean close = false;
     private boolean canAcceptSessions = true;
 
-    public SessionManagerImpl(MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, ClientsHolder clients, ConversationSubscribersHolder<BODY, ID> subscribers, IdBuilder<ID> idBuilder) {
+    public SessionManagerImpl(MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, Interceptor<BODY, ID> interceptor, ClientsHolder clients, ConversationSubscribersHolder<BODY, ID> subscribers, IdBuilder<ID> idBuilder) {
         this.messageStore = messageStore;
         this.detailsStore = detailsStore;
+        this.interceptor = interceptor;
         this.clients = clients;
         this.subscribers = subscribers;
         this.cache = new RelationAndExistenceCache<>(detailsStore, messageStore);
@@ -140,6 +144,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
             return;
         }
         StepByStep.start(new GetSessionDetailsStep(clientId, sessionId))
+                .then(new BeforeSessionOpenInterceptorStep())
                 .then(new InitializeSessionStep(clientId, sessionId, controller, ev))
                 .finish(callback)
                 .execute();
@@ -352,6 +357,14 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
             detailsStore.getSessionDetails(clientId, sessionId , target);
         }
 
+    }
+
+    private final class BeforeSessionOpenInterceptorStep extends ExtraStep<SessionDetails<ID>, Void> {
+
+        @Override
+        protected void executeExtraStep(SessionDetails<ID> details, OperationResultListener<Void> target) {
+            interceptor.sessionInterceptor().beforeSessionOpen(details.clientId(), details.sessionId(), target);
+        }
     }
 
     private final class InitializeSessionStep extends RawTypeProviderStep<SessionDetails<ID>, Session<BODY,ID>> {
