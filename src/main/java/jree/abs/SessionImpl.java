@@ -6,6 +6,7 @@ import jree.abs.objects.PubMessageImpl;
 import jree.abs.objects.SignalImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
+import jree.abs.parts.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.api.*;
 import jree.async.RawTypeProviderStep;
@@ -34,8 +35,9 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     private boolean closed;
     private Object _sync = new Object();
     private final IdBuilder<ID> idIdBuilder;
+    private final Interceptor<BODY, ID> interceptor;
 
-    public SessionImpl(long clientId, long sessionId, SessionEventListener listener, MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, ClientsHolder holder, ConversationSubscribersHolder<BODY, ID> subscribers, RelationController controller, RelationAndExistenceCache cache, IdBuilder<ID> idIdBuilder) {
+    public SessionImpl(long clientId, long sessionId, SessionEventListener listener, MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, ClientsHolder holder, ConversationSubscribersHolder<BODY, ID> subscribers, RelationController controller, RelationAndExistenceCache cache, IdBuilder<ID> idIdBuilder, Interceptor<BODY, ID> interceptor) {
         this.clientId = clientId;
         this.sessionId = sessionId;
         this.listener = listener;
@@ -46,6 +48,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         this.controller = controller;
         this.cache = cache;
         this.idIdBuilder = idIdBuilder;
+        this.interceptor = interceptor;
     }
 
     @Override
@@ -467,6 +470,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             if(result.isLastSession()) {
                 removeSubscriptions();
             }
+            interceptor.sessionInterceptor().onSessionClose(this, OperationResultListener.EMPTY_LISTENER);
             listener.onClosedByException(this, t);
         }
     }
@@ -484,6 +488,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             if(result.isLastSession()) {
                 removeSubscriptions();
             }
+            interceptor.sessionInterceptor().onSessionClose(this, OperationResultListener.EMPTY_LISTENER);
             listener.onCloseByCommand(this);
         }
     }

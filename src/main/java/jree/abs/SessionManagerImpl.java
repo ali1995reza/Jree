@@ -144,8 +144,8 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
             return;
         }
         StepByStep.start(new GetSessionDetailsStep(clientId, sessionId))
-                .then(new BeforeSessionOpenInterceptorStep())
                 .then(new InitializeSessionStep(clientId, sessionId, controller, ev))
+                .then(new OnSessionOpenInterceptorStep())
                 .finish(callback)
                 .execute();
 
@@ -359,14 +359,6 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     }
 
-    private final class BeforeSessionOpenInterceptorStep extends ExtraStep<SessionDetails<ID>, Void> {
-
-        @Override
-        protected void executeExtraStep(SessionDetails<ID> details, OperationResultListener<Void> target) {
-            interceptor.sessionInterceptor().beforeSessionOpen(details.clientId(), details.sessionId(), target);
-        }
-    }
-
     private final class InitializeSessionStep extends RawTypeProviderStep<SessionDetails<ID>, Session<BODY,ID>> {
 
         private final long clientId;
@@ -390,7 +382,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                 SessionImpl<BODY, ID> session = new SessionImpl<>(
                         clientId, sessionId, eventListener,
                         messageStore, detailsStore, clients,
-                        subscribers, controller, cache, idBuilder);
+                        subscribers, controller, cache, idBuilder, interceptor);
                 ClientsHolder.AddSessionResult result = clients.addNewSession(
                         session);
                 if (!result.isAdded()) {
@@ -425,6 +417,15 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                             }
                         });
             }
+        }
+
+    }
+
+    private final class OnSessionOpenInterceptorStep extends ExtraStep<Session<BODY,ID>, Void> {
+
+        @Override
+        protected void executeExtraStep(Session<BODY,ID> session, OperationResultListener<Void> target) {
+            interceptor.sessionInterceptor().onSessionOpen(session, target);
         }
 
     }
