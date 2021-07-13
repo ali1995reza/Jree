@@ -1,31 +1,36 @@
 package jree.abs.cluster;
 
+import com.hazelcast.config.Config;
+import com.hazelcast.config.SerializerConfig;
+import com.hazelcast.config.TopicConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.topic.ITopic;
 import com.hazelcast.topic.Message;
 import com.hazelcast.topic.MessageListener;
-import jree.abs.parts.Interceptor;
-import jree.abs.parts.MessageInterceptor;
-import jree.abs.parts.SessionInterceptor;
-import jree.abs.parts.SubscribeInterceptor;
+import jree.abs.parts.*;
 import jree.api.PubMessage;
 
 public class HazelcastClusterInterceptor implements Interceptor<String, String> {
 
-    private final HazelcastInstance hazelcastInstance;
-    private final ITopic<PubMessage<String, String>> messageTopic;
-    private final HazelcastMessageInterceptor interceptor;
+    private HazelcastInstance hazelcastInstance;
+    private ITopic<PubMessage<String, String>> messageTopic;
+    private HazelcastMessageInterceptor interceptor;
 
-    public HazelcastClusterInterceptor() {
-        this.hazelcastInstance = Hazelcast.newHazelcastInstance();
+    @Override
+    public void initialize(InterceptorContext<String, String> context) {
+        Config config = new Config();
+        config.getSerializationConfig()
+                .addSerializerConfig(
+                        new SerializerConfig()
+                        .setImplementation(new PubMessageSerializer())
+                        .setTypeClass(PubMessage.class)
+                );
+        this.hazelcastInstance = Hazelcast.newHazelcastInstance(config);
         messageTopic = hazelcastInstance.getTopic("messages");
-        messageTopic.addMessageListener(new MessageListener<PubMessage<String, String>>() {
-            @Override
-            public void onMessage(Message<PubMessage<String, String>> message) {
-
-                //to do send message to other nodes !
-            }
+        messageTopic.addMessageListener(m->{
+            context.notifyMessage(m.getMessageObject());
         });
         interceptor = new HazelcastMessageInterceptor(messageTopic);
     }

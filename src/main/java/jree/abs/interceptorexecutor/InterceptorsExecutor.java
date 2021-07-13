@@ -1,9 +1,6 @@
 package jree.abs.interceptorexecutor;
 
-import jree.abs.parts.Interceptor;
-import jree.abs.parts.MessageInterceptor;
-import jree.abs.parts.SessionInterceptor;
-import jree.abs.parts.SubscribeInterceptor;
+import jree.abs.parts.*;
 import jree.util.Assertion;
 
 public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
@@ -65,6 +62,13 @@ public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
         initializeInterceptors();
     }
 
+
+    @Override
+    public void initialize(InterceptorContext<BODY, ID> context) {
+        for(Interceptor<BODY, ID> interceptor:interceptors) {
+            interceptor.initialize(context);
+        }
+    }
 
     @Override
     public MessageInterceptor<BODY, ID> messageInterceptor() {
