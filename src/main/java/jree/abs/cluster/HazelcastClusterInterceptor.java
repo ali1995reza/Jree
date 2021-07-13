@@ -1,6 +1,7 @@
 package jree.abs.cluster;
 
 import com.hazelcast.config.Config;
+import com.hazelcast.config.ListenerConfig;
 import com.hazelcast.config.SerializerConfig;
 import com.hazelcast.config.TopicConfig;
 import com.hazelcast.core.Hazelcast;
@@ -11,6 +12,8 @@ import com.hazelcast.topic.Message;
 import com.hazelcast.topic.MessageListener;
 import jree.abs.parts.*;
 import jree.api.PubMessage;
+
+import java.util.Arrays;
 
 public class HazelcastClusterInterceptor implements Interceptor<String, String> {
 
@@ -28,8 +31,10 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                         .setTypeClass(PubMessage.class)
                 );
         this.hazelcastInstance = Hazelcast.newHazelcastInstance(config);
-        messageTopic = hazelcastInstance.getTopic("messages");
+        messageTopic = hazelcastInstance.getReliableTopic("messages");
         messageTopic.addMessageListener(m->{
+            if(m.getPublishingMember().localMember())
+                return;
             context.notifyMessage(m.getMessageObject());
         });
         interceptor = new HazelcastMessageInterceptor(messageTopic);

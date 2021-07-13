@@ -2,10 +2,7 @@ package jree.abs.cluster;
 
 import com.hazelcast.topic.ITopic;
 import jree.abs.parts.MessageInterceptor;
-import jree.api.OperationResultListener;
-import jree.api.PubMessage;
-import jree.api.Recipient;
-import jree.api.Session;
+import jree.api.*;
 
 public class HazelcastMessageInterceptor implements MessageInterceptor<String, String> {
 
@@ -16,13 +13,14 @@ public class HazelcastMessageInterceptor implements MessageInterceptor<String, S
     }
 
     @Override
-    public void beforePublishMessage(String s, Session publisher, Recipient recipient, OperationResultListener<Void> listener) {
+    public void beforePublishMessage(String s, Publisher publisher, Recipient recipient, OperationResultListener<Void> listener) {
         listener.onSuccess(null);
     }
 
     @Override
     public void onMessagePublish(PubMessage<String, String> message, OperationResultListener<Void> listener) {
-        topic.publish(message);
+        topic.publishAsync(message);
+        listener.onSuccess(null);
     }
 
     @Override

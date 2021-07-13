@@ -5,6 +5,7 @@ import com.mongodb.internal.async.client.AsyncMongoClient;
 import com.mongodb.internal.async.client.AsyncMongoClients;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.abs.PubSubSystemBuilder;
+import jree.abs.cluster.HazelcastClusterInterceptor;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.utils.StringIDBuilder;
 import jree.api.*;
@@ -42,6 +43,7 @@ public class JreeServer {
         ).setDetailsStore(new MongoDetailsStore<>(database , batchContext))
                 .setMessageStore(new MongoMessageStore<>(database , batchContext))
                 .setIdBuilder(new StringIDBuilder(1, System::currentTimeMillis))
+                .addInterceptor(new HazelcastClusterInterceptor())
                 .build();
     }
 

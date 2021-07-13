@@ -9,6 +9,7 @@ import jree.abs.parts.IdBuilder;
 import jree.abs.parts.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.api.*;
+import jree.async.ExtraStep;
 import jree.async.RawTypeProviderStep;
 import jree.async.Step;
 import jree.async.StepByStep;
@@ -95,6 +96,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         StepByStep.start(new GetRelationStep())
                 .then(new ValidationAndStoreMessageStep(message, recipient, false))
                 .then(new AfterMessageSuccessfullyStored())
+                .then(new OnMessageSendInterceptorStep())
                 .finish(callback)
                 .execute(recipient);
 
@@ -168,6 +170,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         StepByStep.start(new GetRelationStep())
                 .then(new ValidationAndStoreMessageStep(message, recipient, true))
                 .then(new AfterMessageSuccessfullyStored())
+                .then(new OnMessageSendInterceptorStep())
                 .finish(callback)
                 .execute(recipient);
         /*
@@ -570,6 +573,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         }
     }
 
+
     private final class AfterMessageSuccessfullyStored extends RawTypeProviderStep<PubMessage<BODY,ID>, PubMessage<BODY,ID>> {
 
         @Override
@@ -577,6 +581,16 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             onPublishedMessageStoredSuccessfully(providedValue, target);
         }
     }
+
+    private final class OnMessageSendInterceptorStep extends ExtraStep<PubMessage<BODY, ID> , Void> {
+
+        @Override
+        protected void executeExtraStep(PubMessage<BODY, ID> message, OperationResultListener<Void> target) {
+            interceptor.messageInterceptor().onMessagePublish(message, target);
+        }
+
+    }
+
     //----------------------------------------------------------------------------------------
 
     //------------------------------- send signal steps -------------------------------------

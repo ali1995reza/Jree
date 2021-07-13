@@ -2,9 +2,7 @@ package jree.abs.interceptorexecutor;
 
 import jree.abs.parts.Interceptor;
 import jree.abs.parts.MessageInterceptor;
-import jree.api.FailReason;
-import jree.api.OperationResultListener;
-import jree.api.PubMessage;
+import jree.api.*;
 
 final class MessageInterceptorExecutor<BODY, ID> implements MessageInterceptor<BODY, ID> {
 
@@ -15,9 +13,9 @@ final class MessageInterceptorExecutor<BODY, ID> implements MessageInterceptor<B
     }
 
     @Override
-    public void beforePublishMessage(PubMessage<BODY, ID> message, OperationResultListener<Void> listener) {
+    public void beforePublishMessage(BODY body, Publisher publisher, Recipient recipient, OperationResultListener<Void> listener) {
         interceptors[0].messageInterceptor()
-                .beforePublishMessage(message, new BeforePublishMessageExecutor(message, listener));
+                .beforePublishMessage(body, publisher, recipient, new BeforePublishMessageExecutor(body, publisher, recipient, listener));
     }
 
     @Override
@@ -34,12 +32,16 @@ final class MessageInterceptorExecutor<BODY, ID> implements MessageInterceptor<B
 
     private final class BeforePublishMessageExecutor implements OperationResultListener<Void> {
 
-        private final PubMessage<BODY, ID> message;
+        private final BODY message;
+        private final Publisher publisher;
+        private final Recipient recipient;
         private final OperationResultListener<Void> listener;
         private int index = 0;
 
-        private BeforePublishMessageExecutor(PubMessage<BODY, ID> message, OperationResultListener<Void> listener) {
+        private BeforePublishMessageExecutor(BODY message, Publisher publisher, Recipient recipient, OperationResultListener<Void> listener) {
             this.message = message;
+            this.publisher = publisher;
+            this.recipient = recipient;
             this.listener = listener;
         }
 
@@ -47,7 +49,7 @@ final class MessageInterceptorExecutor<BODY, ID> implements MessageInterceptor<B
         public void onSuccess(Void result) {
             if(++index<interceptors.length) {
                 interceptors[index].messageInterceptor()
-                        .beforePublishMessage(message, this);
+                        .beforePublishMessage(message, publisher, recipient, this);
             } else {
                 listener.onSuccess(result);
             }

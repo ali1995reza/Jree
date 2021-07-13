@@ -20,9 +20,9 @@ public class PubMessageSerializer implements StreamSerializer<PubMessage<String,
     public void write(@Nonnull ObjectDataOutput output, @Nonnull PubMessage<String, String> message) throws IOException {
         output.writeLong(message.publisher().client());
         output.writeLong(message.publisher().session());
+        output.writeLong(message.recipient().conversation());
         output.writeLong(message.recipient().client());
         output.writeLong(message.recipient().session());
-        output.writeLong(message.recipient().conversation());
         output.writeString(message.id());
         output.writeString(message.body());
         output.writeLong(message.time().toEpochMilli());
