@@ -79,7 +79,15 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
             SessionImpl<BODY, ID> session,
             OperationResultListener<Boolean> callback
     ) {
-        return doAdd(conversation, session, callback);
+        return doAdd(conversation, session.clientId(), callback);
+    }
+
+    public ConversationSubscribersHolder<BODY, ID> addSubscriber(
+            long conversation,
+            Recipient subscriber,
+            OperationResultListener<Boolean> callback
+    ) {
+        return doAdd(conversation, subscriber.client(), callback);
     }
 
     public ConversationSubscribersHolder<BODY, ID> addSubscriber(
@@ -88,6 +96,16 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
     ) {
         AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
         addSubscriber(conversation, session, asyncToSync);
+        asyncToSync.getResult();
+        return this;
+    }
+
+    public ConversationSubscribersHolder<BODY, ID> addSubscriber(
+            long conversation,
+            Recipient subscriber
+    ) {
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        addSubscriber(conversation, subscriber, asyncToSync);
         asyncToSync.getResult();
         return this;
     }
@@ -114,6 +132,28 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
         return this;
     }
 
+    public ConversationSubscribersHolder<BODY, ID> removeSubscriber(
+            long conversation,
+            Recipient subscriber,
+            OperationResultListener<Boolean> callback
+    ) {
+        String sql = "DELETE FROM " + tableName + " WHERE CL=" + subscriber.client() + " AND S=" + subscriber.session() + " AND C=" + conversation;
+        subscribersDatabase.execute(sql,
+                new OperationResultListener<Statement>() {
+                    @Override
+                    public void onSuccess(Statement result) {
+                        callback.onSuccess(true);
+                    }
+
+                    @Override
+                    public void onFailed(FailReason reason) {
+                        callback.onFailed(reason);
+                    }
+                });
+
+        return this;
+    }
+
     public ConversationSubscribersHolder<BODY,ID> removeSubscriber(long conversation,
                                                                    SessionImpl<BODY, ID> session){
         AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
@@ -122,11 +162,21 @@ final class ConversationSubscribersHolder<BODY, ID extends Comparable<ID>> {
         return this;
     }
 
+    public ConversationSubscribersHolder<BODY, ID> removeSubscriber(
+            long conversation,
+            Recipient subscriber
+    ){
+        AsyncToSync<Boolean> asyncToSync = SharedAsyncToSync.shared().get().refresh();
+        removeSubscriber(conversation, subscriber, asyncToSync);
+        asyncToSync.getResult();
+        return this;
+    }
+
 
     private final ConversationSubscribersHolder<BODY, ID> doAdd(long conversation,
-                                                                SessionImpl<BODY, ID> session,
+                                                                long clientId,
                                                                 OperationResultListener<Boolean> callback) {
-        String insert = "INSERT INTO " + tableName + "(C , CL) VALUES (" + conversation + " , " + session.clientId() + ")";
+        String insert = "INSERT INTO " + tableName + "(C , CL) VALUES (" + conversation + " , " + clientId + ")";
 
         doAdd(insert, callback);
 

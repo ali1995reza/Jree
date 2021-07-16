@@ -7,7 +7,7 @@ import jree.abs.funcs.ForEach;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
-import jree.abs.parts.Interceptor;
+import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.abs.utils.StaticFunctions;
 import jree.api.*;
@@ -29,13 +29,13 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
     private boolean close = false;
     private boolean canAcceptSessions = true;
 
-    public SessionManagerImpl(MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, Interceptor<BODY, ID> interceptor, ClientsHolder clients, ConversationSubscribersHolder<BODY, ID> subscribers, IdBuilder<ID> idBuilder) {
+    public SessionManagerImpl(MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, Interceptor<BODY, ID> interceptor, ClientsHolder clients, ConversationSubscribersHolder<BODY, ID> subscribers, RelationAndExistenceCache<ID> cache, IdBuilder<ID> idBuilder) {
         this.messageStore = messageStore;
         this.detailsStore = detailsStore;
         this.interceptor = interceptor;
         this.clients = clients;
         this.subscribers = subscribers;
-        this.cache = new RelationAndExistenceCache<>(detailsStore, messageStore);
+        this.cache = cache;
         this.idBuilder = idBuilder;
     }
 
@@ -81,7 +81,9 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
         //so lets first remove from store and then close active ones !
 
         StepByStep.start(new CheckExistenceStep())
+                .then(new BeforeRemoveClientInterceptorStep(clientId))
                 .then(new RemoveClientFromDetailsStoreStep(clientId))
+                .then(new OnClientRemoveInterceptorStep(clientId))
                 .then(new AfterClientRemoveStep(clientId))
                 .finish(callback)
                 .execute(RecipientImpl.clientRecipient(clientId));
@@ -223,7 +225,9 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
     public void removeSession(long clientId, long sessionId, OperationResultListener<Boolean> callback) {
 
         StepByStep.start(new CheckExistenceStep())
+                .then(new BeforeRemoveSessionInterceptorStep(clientId, sessionId))
                 .then(new RemoveSessionFromDetailsStoreStep(clientId, sessionId))
+                .then(new OnSessionRemoveInterceptorStep(clientId, sessionId))
                 .then(new AfterSessionRemoveStep(clientId, sessionId))
                 .finish(callback)
                 .execute(RecipientImpl.sessionRecipient(clientId , sessionId));
@@ -434,6 +438,24 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     //-------------------------- remove session steps ----------------------------------
 
+    private final class BeforeRemoveSessionInterceptorStep extends ExtraStep<Boolean, Void> {
+
+        private final long clientId;
+        private final long sessionId;
+
+        private BeforeRemoveSessionInterceptorStep(long clientId, long sessionId) {
+            this.clientId = clientId;
+            this.sessionId = sessionId;
+        }
+
+        @Override
+        protected void executeExtraStep(Boolean providedValue, OperationResultListener<Void> target) {
+            interceptor.sessionInterceptor()
+                    .beforeRemoveSession(clientId, sessionId, target);
+        }
+
+    }
+
     private final class RemoveSessionFromDetailsStoreStep extends RawTypeProviderStep<Boolean, Boolean> {
 
         private final long clientId;
@@ -449,6 +471,24 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
             detailsStore.removeSession(clientId,sessionId,target);
 
+        }
+
+    }
+
+    private final class OnSessionRemoveInterceptorStep extends ExtraStep<Boolean, Void> {
+
+        private final long clientId;
+        private final long sessionId;
+
+        private OnSessionRemoveInterceptorStep(long clientId, long sessionId) {
+            this.clientId = clientId;
+            this.sessionId = sessionId;
+        }
+
+        @Override
+        protected void executeExtraStep(Boolean providedValue, OperationResultListener<Void> target) {
+            interceptor.sessionInterceptor()
+                    .onSessionRemove(clientId, sessionId, target);
         }
 
     }
@@ -480,6 +520,22 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     //---------------------------------- remove client steps ----------------------------
 
+    private final class BeforeRemoveClientInterceptorStep extends ExtraStep<Boolean, Void> {
+
+        private final long clientId;
+
+        private BeforeRemoveClientInterceptorStep(long clientId) {
+            this.clientId = clientId;
+        }
+
+        @Override
+        protected void executeExtraStep(Boolean providedValue, OperationResultListener<Void> target) {
+            interceptor.sessionInterceptor()
+                    .beforeRemoveClient(clientId, target);
+        }
+
+    }
+
     private final class RemoveClientFromDetailsStoreStep extends RawTypeProviderStep<Boolean, Boolean> {
 
         private final long clientId;
@@ -493,6 +549,22 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
             detailsStore.removeClient(clientId,target);
 
+        }
+
+    }
+
+    private final class OnClientRemoveInterceptorStep extends ExtraStep<Boolean, Void> {
+
+        private final long clientId;
+
+        private OnClientRemoveInterceptorStep(long clientId) {
+            this.clientId = clientId;
+        }
+
+        @Override
+        protected void executeExtraStep(Boolean providedValue, OperationResultListener<Void> target) {
+            interceptor.sessionInterceptor()
+                    .onClientRemove(clientId, target);
         }
 
     }

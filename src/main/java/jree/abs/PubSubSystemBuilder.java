@@ -3,7 +3,7 @@ package jree.abs;
 import jree.abs.interceptorexecutor.InterceptorsExecutor;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
-import jree.abs.parts.Interceptor;
+import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.api.PubSubSystem;
 import jree.util.Assertion;

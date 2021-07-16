@@ -3,10 +3,12 @@ package jree.abs;
 import jree.abs.cache.RelationAndExistenceCache;
 import jree.abs.funcs.AsyncToSync;
 import jree.abs.objects.PubMessageImpl;
+import jree.abs.objects.PublisherImpl;
+import jree.abs.objects.RecipientImpl;
 import jree.abs.objects.SignalImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
-import jree.abs.parts.Interceptor;
+import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.api.*;
 import jree.async.ExtraStep;
@@ -94,9 +96,11 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public void publishMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         assertIfClosed();
         StepByStep.start(new GetRelationStep())
-                .then(new ValidationAndStoreMessageStep(message, recipient, false))
+                .then(new ValidateRelationStep(recipient))
+                .then(new BeforePublishMessageInterceptorStep(message, recipient))
+                .then(new StoreMessageStep(message, recipient, false))
                 .then(new AfterMessageSuccessfullyStored())
-                .then(new OnMessageSendInterceptorStep())
+                .then(new OnMessagePublishInterceptorStep())
                 .finish(callback)
                 .execute(recipient);
 
@@ -168,9 +172,11 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public void publishDisposableMessage(Recipient recipient, BODY message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         assertIfClosed();
         StepByStep.start(new GetRelationStep())
-                .then(new ValidationAndStoreMessageStep(message, recipient, true))
+                .then(new ValidateRelationStep(recipient))
+                .then(new BeforePublishMessageInterceptorStep(message, recipient))
+                .then(new StoreMessageStep(message, recipient, true))
                 .then(new AfterMessageSuccessfullyStored())
-                .then(new OnMessageSendInterceptorStep())
+                .then(new OnMessagePublishInterceptorStep())
                 .finish(callback)
                 .execute(recipient);
         /*
@@ -242,13 +248,15 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     }
 
     @Override
-    public void subscribe(long subscribe, OperationResultListener<Boolean> callback) {
+    public void subscribe(long conversation, OperationResultListener<Boolean> callback) {
         assertIfClosed();
 
-        StepByStep.start(new AddSubscribeToDetailStoreStep())
-                .then(new AfterAddSubscribeOperationDoneStep(subscribe))
+        StepByStep.start(new BeforeSubscribeInterceptorStep())
+                .then(new AddSubscribeToDetailStoreStep())
+                .then(new OnSubscribeInterceptorStep(conversation))
+                .then(new AfterAddSubscribeOperationDoneStep(conversation))
                 .finish(callback)
-                .execute(subscribe);
+                .execute(conversation);
 
         /*
         detailsStore.addToSubscribeList(clientId, subscribe, new OperationResultListener<Boolean>() {
@@ -280,7 +288,9 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public void unsubscribe(long conversation, OperationResultListener<Boolean> callback) {
         assertIfClosed();
 
-        StepByStep.start(new RemoveSubscribeFromDetailsStoreStep())
+        StepByStep.start(new BeforeUnsubscribeInterceptorStep())
+                .then(new RemoveSubscribeFromDetailsStoreStep())
+                .then(new OnUnsubscribeInterceptorStep(conversation))
                 .then(new AfterRemoveSubscribeOperationDoneStep(conversation))
                 .finish(callback)
                 .execute(conversation);
@@ -352,7 +362,10 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     public void sendSignal(Recipient recipient, BODY sig, OperationResultListener<Signal<BODY>> callback) {
         assertIfClosed();
         StepByStep.start(new GetRelationStep())
-                .then(new ValidateAndSendSignalStep(recipient, sig))
+                .then(new ValidateRelationStep(recipient))
+                .then(new BeforeSendSignalInterceptorStep(sig, recipient))
+                .then(new SendSignalStep(sig, recipient))
+                .then(new OnSignalSendInterceptorStep())
                 .finish(callback)
                 .execute(recipient);
         /*
@@ -514,7 +527,13 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         return "MongoSession{" + "clientId=" + clientId + ", sessionId=" + sessionId + '}';
     }
 
+    private Publisher asPublisher() {
+        return new PublisherImpl(clientId, sessionId);
+    }
 
+    private Recipient asClientRecipient() {
+        return RecipientImpl.clientRecipient(clientId);
+    }
 
     //------------------------------ shared steps ----------------------------------------
 
@@ -526,6 +545,31 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
             cache.checkExistenceAndGetRelation(SessionImpl.this, providedValue, target);
         }
     }
+
+    private final class ValidateRelationStep extends RawTypeProviderStep<Relation, Void> {
+
+        private final Recipient recipient;
+
+        private ValidateRelationStep(Recipient recipient) {
+            this.recipient = recipient;
+        }
+
+        @Override
+        protected void doExecute(Relation relation, OperationResultListener<Void> target) {
+            try {
+                if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
+                    target.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
+                    return;
+                }
+            } catch (Throwable e) {
+                target.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
+                return;
+            }
+            target.onSuccess(null);
+
+        }
+    }
+
 
     private final class CheckExistenceStep extends RawTypeProviderStep<Recipient, Boolean> {
 
@@ -541,29 +585,39 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
 
 
     //----------------------------- publish message steps ---------------------------------
-    private final class ValidationAndStoreMessageStep extends RawTypeProviderStep<Relation, PubMessage<BODY,ID>> {
+
+    private final class BeforePublishMessageInterceptorStep extends RawTypeProviderStep<Void, Void> {
+
+        private final BODY message;
+        private final Recipient recipient;
+
+        private BeforePublishMessageInterceptorStep(BODY message, Recipient recipient) {
+            this.message = message;
+            this.recipient = recipient;
+        }
+
+        @Override
+        protected void doExecute(Void providedValue, OperationResultListener<Void> target) {
+            interceptor.messageInterceptor()
+                    .beforePublishMessage(message, asPublisher(), recipient, target);
+        }
+
+    }
+
+    private final class StoreMessageStep extends RawTypeProviderStep<Void, PubMessage<BODY, ID>> {
 
         private final BODY message;
         private final Recipient recipient;
         private final boolean disposable;
 
-        private ValidationAndStoreMessageStep(BODY message, Recipient recipient, boolean disposable) {
+        private StoreMessageStep(BODY message, Recipient recipient, boolean disposable) {
             this.message = message;
             this.recipient = recipient;
             this.disposable = disposable;
         }
 
         @Override
-        protected void doExecute(Relation relation, OperationResultListener<PubMessage<BODY, ID>> target) {
-            try {
-                if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
-                    target.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
-                    return;
-                }
-            } catch (Throwable e) {
-                target.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
-                return;
-            }
+        protected void doExecute(Void providedValue, OperationResultListener<PubMessage<BODY, ID>> target) {
             PubMessageImpl<BODY, ID> pubMessage = new PubMessageImpl<>(idIdBuilder.newId(), message, Instant.now(), SessionImpl.this, recipient);
             if(disposable) {
                 messageStore.storeAsDisposableMessage(pubMessage, target);
@@ -571,8 +625,8 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
                 messageStore.storeMessage(pubMessage, target);
             }
         }
-    }
 
+    }
 
     private final class AfterMessageSuccessfullyStored extends RawTypeProviderStep<PubMessage<BODY,ID>, PubMessage<BODY,ID>> {
 
@@ -582,7 +636,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         }
     }
 
-    private final class OnMessageSendInterceptorStep extends ExtraStep<PubMessage<BODY, ID> , Void> {
+    private final class OnMessagePublishInterceptorStep extends ExtraStep<PubMessage<BODY, ID> , Void> {
 
         @Override
         protected void executeExtraStep(PubMessage<BODY, ID> message, OperationResultListener<Void> target) {
@@ -595,40 +649,91 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
 
     //------------------------------- send signal steps -------------------------------------
 
-    private final class ValidateAndSendSignalStep extends RawTypeProviderStep<Relation,Signal<BODY>> {
+    private final class BeforeSendSignalInterceptorStep extends RawTypeProviderStep<Void, Void> {
 
+        private final BODY signal;
         private final Recipient recipient;
-        private final BODY body;
 
-        private ValidateAndSendSignalStep(Recipient recipient, BODY body) {
+        private BeforeSendSignalInterceptorStep(BODY signal, Recipient recipient) {
+            this.signal = signal;
             this.recipient = recipient;
-            this.body = body;
         }
 
         @Override
-        protected void doExecute(Relation relation, OperationResultListener<Signal<BODY>> target) {
-            try {
-                if (!controller.validatePublishMessage(SessionImpl.this, recipient, relation)) {
-                    target.onFailed(new FailReason(new IllegalStateException("relation failed"), RUNTIME_EXCEPTION));
-                    return;
-                }
-            } catch (Throwable e) {
-                target.onFailed(new FailReason(e, RUNTIME_EXCEPTION));
-                return;
-            }
-            Signal<BODY> signal = new SignalImpl<>(body, SessionImpl.this, recipient);
+        protected void doExecute(Void providedValue, OperationResultListener<Void> target) {
+            interceptor.messageInterceptor()
+                    .beforeSendSignal(signal, asPublisher(), recipient, target);
+        }
+
+    }
+
+    private final class SendSignalStep extends RawTypeProviderStep<Void, Signal<BODY>> {
+
+        private final BODY signal;
+        private final Recipient recipient;
+
+        private SendSignalStep(BODY signal, Recipient recipient) {
+            this.signal = signal;
+            this.recipient = recipient;
+        }
+
+        @Override
+        protected void doExecute(Void providedValue, OperationResultListener<Signal<BODY>> target) {
+            Signal<BODY> signal = new SignalImpl<>(this.signal, SessionImpl.this, recipient);
             onSignalPublished(signal, target);
+        }
+
+    }
+
+    private final class OnSignalSendInterceptorStep extends ExtraStep<Signal<BODY>, Void> {
+
+        @Override
+        protected void executeExtraStep(Signal<BODY> signal, OperationResultListener<Void> target) {
+            interceptor.messageInterceptor()
+                    .onSignalSend(signal, target);
         }
 
     }
 
     //------------------------------- subscribe operations -----------------------------------
 
+    private class BeforeSubscribeInterceptorStep extends ExtraStep<Long, Void> {
+
+        @Override
+        protected void executeExtraStep(Long conversation, OperationResultListener<Void> target) {
+            interceptor.subscriptionInterceptor().beforeSubscribe(asClientRecipient(), conversation, target);
+        }
+
+    }
+
     private class AddSubscribeToDetailStoreStep extends RawTypeProviderStep<Long,Boolean> {
 
         @Override
         protected void doExecute(Long conversation, OperationResultListener<Boolean> target) {
             detailsStore.addToSubscribeList(clientId, conversation, target);
+        }
+
+    }
+
+    private class OnSubscribeInterceptorStep extends ExtraStep<Boolean, Void> {
+
+        private final long conversationId;
+
+        private OnSubscribeInterceptorStep(long conversationId) {
+            this.conversationId = conversationId;
+        }
+
+        @Override
+        protected void executeExtraStep(Boolean result, OperationResultListener<Void> target) {
+            if(result) {
+                interceptor.subscriptionInterceptor().onSubscribe(
+                        asClientRecipient(),
+                        conversationId,
+                        target
+                );
+            } else {
+                target.onFailed(new FailReason(1212));
+            }
         }
 
     }
@@ -654,11 +759,39 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
 
     }
 
+    private class BeforeUnsubscribeInterceptorStep extends ExtraStep<Long, Void> {
+
+        @Override
+        protected void executeExtraStep(Long conversationId, OperationResultListener<Void> target) {
+            interceptor.subscriptionInterceptor().beforeUnsubscribe(asClientRecipient(), conversationId, target);
+        }
+
+    }
+
     private class RemoveSubscribeFromDetailsStoreStep extends RawTypeProviderStep<Long, Boolean> {
 
         @Override
         protected void doExecute(Long conversation, OperationResultListener<Boolean> target) {
             detailsStore.removeFromSubscribeList(clientId, conversation,target);
+        }
+
+    }
+
+    private class OnUnsubscribeInterceptorStep extends ExtraStep<Boolean, Void> {
+
+        private final long conversationId;
+
+        private OnUnsubscribeInterceptorStep(long conversationId) {
+            this.conversationId = conversationId;
+        }
+
+        @Override
+        protected void executeExtraStep(Boolean result, OperationResultListener<Void> target) {
+            if(result) {
+                interceptor.subscriptionInterceptor().onUnsubscribe(asClientRecipient(), conversationId, target);
+            } else {
+                target.onFailed(new FailReason(32132));
+            }
         }
 
     }

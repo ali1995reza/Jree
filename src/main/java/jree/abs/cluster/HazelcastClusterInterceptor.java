@@ -1,24 +1,19 @@
 package jree.abs.cluster;
 
 import com.hazelcast.config.Config;
-import com.hazelcast.config.ListenerConfig;
 import com.hazelcast.config.SerializerConfig;
-import com.hazelcast.config.TopicConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.topic.ITopic;
-import com.hazelcast.topic.Message;
-import com.hazelcast.topic.MessageListener;
-import jree.abs.parts.*;
+import jree.abs.parts.interceptor.*;
 import jree.api.PubMessage;
-
-import java.util.Arrays;
+import jree.api.Signal;
 
 public class HazelcastClusterInterceptor implements Interceptor<String, String> {
 
     private HazelcastInstance hazelcastInstance;
     private ITopic<PubMessage<String, String>> messageTopic;
+    private ITopic<Signal<String>> signalTopic;
     private HazelcastMessageInterceptor interceptor;
 
     @Override
@@ -29,6 +24,10 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                         new SerializerConfig()
                         .setImplementation(new PubMessageSerializer())
                         .setTypeClass(PubMessage.class)
+                ).addSerializerConfig(
+                        new SerializerConfig()
+                        .setImplementation(new SignalSerializer())
+                        .setTypeClass(Signal.class)
                 );
         this.hazelcastInstance = Hazelcast.newHazelcastInstance(config);
         messageTopic = hazelcastInstance.getReliableTopic("messages");
@@ -37,7 +36,13 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                 return;
             context.notifyMessage(m.getMessageObject());
         });
-        interceptor = new HazelcastMessageInterceptor(messageTopic);
+        signalTopic = hazelcastInstance.getReliableTopic("signals");
+        signalTopic.addMessageListener(m->{
+            if(m.getPublishingMember().localMember())
+                return;
+            context.notifySignal(m.getMessageObject());
+        });
+        interceptor = new HazelcastMessageInterceptor(messageTopic, signalTopic);
     }
 
     @Override
@@ -51,8 +56,8 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
     }
 
     @Override
-    public SubscribeInterceptor<String, String> subscribeInterceptor() {
-        return SubscribeInterceptor.EMPTY;
+    public SubscriptionInterceptor<String, String> subscriptionInterceptor() {
+        return SubscriptionInterceptor.EMPTY;
     }
 
 }

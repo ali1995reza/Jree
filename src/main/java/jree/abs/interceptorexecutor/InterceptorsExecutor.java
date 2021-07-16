@@ -1,6 +1,6 @@
 package jree.abs.interceptorexecutor;
 
-import jree.abs.parts.*;
+import jree.abs.parts.interceptor.*;
 import jree.util.Assertion;
 
 public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
@@ -8,7 +8,7 @@ public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
     private Interceptor<BODY, ID>[] interceptors;
     private MessageInterceptor<BODY, ID> messageInterceptor;
     private SessionInterceptor<BODY, ID> sessionInterceptor;
-    private SubscribeInterceptor<BODY, ID> subscribeInterceptor;
+    private SubscriptionInterceptor<BODY, ID> subscriptionInterceptor;
 
     public InterceptorsExecutor() {
         interceptors = new Interceptor[0];
@@ -19,11 +19,11 @@ public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
         if(interceptors.length==0) {
             messageInterceptor = MessageInterceptor.EMPTY;
             sessionInterceptor = SessionInterceptor.EMPTY;
-            subscribeInterceptor = SubscribeInterceptor.EMPTY;
+            subscriptionInterceptor = SubscriptionInterceptor.EMPTY;
         } else {
             messageInterceptor = new MessageInterceptorExecutor<>(interceptors);
-            sessionInterceptor = SessionInterceptor.EMPTY;
-            subscribeInterceptor = SubscribeInterceptor.EMPTY;
+            sessionInterceptor = new SessionInterceptorExecutor<>(interceptors);
+            subscriptionInterceptor = new SubscriptionInterceptorExecutor<>(interceptors);
         }
     }
 
@@ -81,7 +81,7 @@ public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
     }
 
     @Override
-    public SubscribeInterceptor<BODY, ID> subscribeInterceptor() {
-        return subscribeInterceptor;
+    public SubscriptionInterceptor<BODY, ID> subscriptionInterceptor() {
+        return subscriptionInterceptor;
     }
 }
