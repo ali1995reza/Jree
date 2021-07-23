@@ -1,4 +1,4 @@
-package jree.abs.cluster;
+package jree.abs.cluster.serializers;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
