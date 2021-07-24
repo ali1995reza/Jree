@@ -98,6 +98,11 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
             clientsHolder.removeClientAndCloseAllSessions(clientId);
         }
 
+        @Override
+        public void notifyShutdown() {
+            //todo shutdown system
+        }
+
     }
 
 }

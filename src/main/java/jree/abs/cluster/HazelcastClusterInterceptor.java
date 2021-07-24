@@ -5,10 +5,7 @@ import com.hazelcast.config.SerializerConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.topic.ITopic;
-import jree.abs.cluster.serializers.PubMessageSerializer;
-import jree.abs.cluster.serializers.SignalSerializer;
-import jree.abs.cluster.serializers.SubscribeSerializer;
-import jree.abs.cluster.serializers.UnsubscribeSerializer;
+import jree.abs.cluster.serializers.*;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.parts.interceptor.*;
 import jree.api.PubMessage;
@@ -22,6 +19,8 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
     private ITopic subscriptionTopic;
     private HazelcastMessageInterceptor messageInterceptor;
     private HazelcastSubscriptionInterceptor subscriptionInterceptor;
+    private HazelcastSessionInterceptor sessionInterceptor;
+    private ITopic sessionEventTopic;
 
     @Override
     public void initialize(InterceptorContext<String, String> context) {
@@ -41,8 +40,12 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                         .setTypeClass(Subscribe.class)
                 ).addSerializerConfig(
                         new SerializerConfig()
-                        .setImplementation(new UnsubscribeSerializer())
-                        .setTypeClass(Unsubscribe.class)
+                        .setImplementation(new OpenSessionEventSerializer())
+                        .setTypeClass(OpenSessionEvent.class)
+                ).addSerializerConfig(
+                        new SerializerConfig()
+                        .setImplementation(new CloseSessionEventSerializer())
+                        .setTypeClass(CloseSessionEvent.class)
                 );
         this.hazelcastInstance = Hazelcast.newHazelcastInstance(config);
         messageTopic = hazelcastInstance.getReliableTopic("messages");
@@ -70,8 +73,10 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                 context.notifyUnsubscribe(RecipientImpl.clientRecipient(unsubscribe.subscriber()), unsubscribe.conversation());
             }
         });
+        sessionEventTopic = hazelcastInstance.getReliableTopic("sessions");
         messageInterceptor = new HazelcastMessageInterceptor(messageTopic, signalTopic);
         subscriptionInterceptor = new HazelcastSubscriptionInterceptor(subscriptionTopic);
+        sessionInterceptor = new HazelcastSessionInterceptor(sessionEventTopic);
     }
 
     @Override
@@ -81,7 +86,7 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
 
     @Override
     public SessionInterceptor<String, String> sessionInterceptor() {
-        return SessionInterceptor.EMPTY;
+        return sessionInterceptor;
     }
 
     @Override

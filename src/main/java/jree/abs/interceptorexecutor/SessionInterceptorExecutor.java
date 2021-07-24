@@ -31,7 +31,7 @@ final class SessionInterceptorExecutor<BODY, ID> implements SessionInterceptor<B
 
     @Override
     public void beforeCloseSession(Session<BODY, ID> session, OperationResultListener<Void> listener) {
-        getInterceptor(0).onSessionOpen(session, new BeforeCloseSessionExecutor(session, listener));
+        getInterceptor(0).beforeCloseSession(session, new BeforeCloseSessionExecutor(session, listener));
     }
 
     @Override
