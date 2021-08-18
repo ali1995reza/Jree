@@ -15,7 +15,7 @@ import jree.async.ExtraStep;
 import jree.async.RawTypeProviderStep;
 import jree.async.Step;
 import jree.async.StepByStep;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 import java.time.Instant;
 import java.util.ArrayList;

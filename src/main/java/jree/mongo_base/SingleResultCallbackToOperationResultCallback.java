@@ -5,7 +5,7 @@ import com.mongodb.internal.async.SingleResultCallback;
 import jree.abs.codes.FailReasonsCodes;
 import jree.api.FailReason;
 import jree.api.OperationResultListener;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 public class SingleResultCallbackToOperationResultCallback<T, R> implements SingleResultCallback<T> {
 

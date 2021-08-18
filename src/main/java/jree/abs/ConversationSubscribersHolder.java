@@ -3,7 +3,7 @@ package jree.abs;
 import jree.abs.funcs.AsyncToSync;
 import jree.abs.utils.H2ConnectionPool;
 import jree.api.*;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

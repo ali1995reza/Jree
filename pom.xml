@@ -18,6 +18,13 @@
 
 
     <dependencies>
+
+        <dependency>
+            <groupId>io.github.ali_1995_reza</groupId>
+            <artifactId>Jutils</artifactId>
+            <version>1.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongodb-driver-async</artifactId>

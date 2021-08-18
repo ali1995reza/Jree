@@ -6,7 +6,7 @@ import jree.abs.parts.IdBuilder;
 import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.api.PubSubSystem;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 public final class PubSubSystemBuilder<BODY, ID extends Comparable<ID>> {
 

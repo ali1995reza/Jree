@@ -1,7 +1,7 @@
 package jree.abs;
 
 import jree.api.*;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListener<BODY, ID> {
 

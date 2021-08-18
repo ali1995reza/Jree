@@ -1,7 +1,7 @@
 package jree.abs.interceptorexecutor;
 
 import jree.abs.parts.interceptor.*;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 public class InterceptorsExecutor<BODY, ID> implements Interceptor<BODY, ID> {
 

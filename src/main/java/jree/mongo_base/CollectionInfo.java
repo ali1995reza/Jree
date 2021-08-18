@@ -6,7 +6,7 @@ import jree.mongo_base.batch.FindByIdBatch;
 import jree.mongo_base.batch.InsertBatch;
 import jree.mongo_base.batch.UpdateBatch;
 import jree.mongo_base.batch.UpsertBatch;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 import org.bson.Document;
 
 public final class CollectionInfo {

@@ -5,7 +5,7 @@ import jree.abs.funcs.ForEach;
 import jree.abs.parts.MessageStore;
 import jree.api.*;
 import jree.abs.utils.StaticFunctions;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 import java.util.Arrays;
 import java.util.Iterator;

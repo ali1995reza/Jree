@@ -1,6 +1,6 @@
 package jree.client_server.client.io;
 
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
@@ -8,7 +8,6 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 public class JreeClient {
