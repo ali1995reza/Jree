@@ -1,13 +1,11 @@
 package jree.abs.utils;
 
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class ThreadLocalManager {
 

@@ -125,6 +125,10 @@ public class WebSocketServerModel {
                             }
 
                             @Override
+                            public void onClosing(SessionContext context) {
+                            }
+
+                            @Override
                             public void onClosedByException(SessionContext context, Throwable exception) {
                                 user.close();
                             }

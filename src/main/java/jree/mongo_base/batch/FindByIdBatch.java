@@ -4,8 +4,7 @@ import com.mongodb.Block;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import jree.util.BatchExecutor;
-import jree.util.Converter;
-import jree.util.ConverterList;
+import jutils.collection.ListMapper;
 import org.bson.Document;
 
 import java.util.ArrayList;
@@ -20,13 +19,6 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
 
     private final static String ID = "_id";
 
-    private final Converter<AsyncFindByIdModel<T>, T> CONVERTER = new Converter<AsyncFindByIdModel<T>, T>() {
-        @Override
-        public T convert(AsyncFindByIdModel<T> tAsyncFindByIdModel) {
-            return tAsyncFindByIdModel.id;
-        }
-    };
-
     public final static class AsyncFindByIdModel<T> {
 
         private final T id;
@@ -36,6 +28,10 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
         public AsyncFindByIdModel(T id, SingleResultCallback<Document> listener) {
             this.listener = listener;
             this.id = id;
+        }
+
+        public T getId() {
+            return id;
         }
 
         private void batchListener(SingleResultCallback<Document> listener) {
@@ -155,7 +151,7 @@ public class FindByIdBatch<T> extends BatchExecutor<FindByIdBatch.AsyncFindByIdM
 
     @Override
     public void executeBatch(List<AsyncFindByIdModel<T>> batch) {
-        List<T> ids = new ConverterList<>(batch, CONVERTER);
+        List<T> ids = ListMapper.map(batch, AsyncFindByIdModel::getId);
         BatchCallbackHandler handler = new BatchCallbackHandler(capturedIndex);
         collection.find(in(ID, ids)).forEach(handler, handler);
     }

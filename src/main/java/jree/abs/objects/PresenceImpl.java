@@ -1,7 +1,7 @@
 package jree.abs.objects;
 
 import jree.api.Presence;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 import java.time.Instant;
 

@@ -5,8 +5,7 @@ import com.mongodb.client.model.*;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import jree.util.BatchExecutor;
-import jree.util.Converter;
-import jree.util.ConverterList;
+import jutils.collection.ListMapper;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
@@ -38,6 +37,14 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
         public AsyncUpdateModel(DeleteManyModel<Document> delete, SingleResultCallback<Void> callback) {
             this.update = delete;
             this.callback = callback;
+        }
+
+        public WriteModel<Document> getUpdate() {
+            return update;
+        }
+
+        public SingleResultCallback<Void> getCallback() {
+            return callback;
         }
     }
 
@@ -80,13 +87,6 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
             }
         }
     }
-
-    private final static Converter<AsyncUpdateModel, WriteModel<Document>> CONVERTER = new Converter<AsyncUpdateModel, WriteModel<Document>>() {
-        @Override
-        public WriteModel<Document> convert(AsyncUpdateModel asyncInsertModel) {
-            return asyncInsertModel.update;
-        }
-    };
 
 
     private final AsyncMongoCollection<Document> collection;
@@ -152,8 +152,7 @@ public class UpdateBatch extends BatchExecutor<UpdateBatch.AsyncUpdateModel> {
 
     @Override
     public void executeBatch(List<AsyncUpdateModel> batch) {
-        List<WriteModel<Document>> writeList = new ConverterList<>(batch,
-                CONVERTER);
+        List<WriteModel<Document>> writeList = ListMapper.map(batch, AsyncUpdateModel::getUpdate);
         collection.bulkWrite(
                 writeList,
                 new BatchCallbackHandler(batch, writeList, collection, 2)

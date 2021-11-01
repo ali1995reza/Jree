@@ -6,7 +6,6 @@ import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.internal.async.SingleResultCallback;
-import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.abs.SessionDetails;
 import jree.abs.codes.FailReasonsCodes;
@@ -253,7 +252,7 @@ public class MongoDetailsStore<ID extends Comparable<ID>> implements DetailsStor
 
     @Override
     public void getSessionDetails(long client, long session, OperationResultListener<SessionDetails<ID>> callback) {
-        final SessionDetails<ID> details = new SessionDetails<>();
+        final SessionDetails<ID> details = new SessionDetails<>(client, session);
         sessionsDetailsCollection.findByIdBatch().findOne(uniqueId(client, session),
                 new SingleResultCallback<Document>() {
                     @Override

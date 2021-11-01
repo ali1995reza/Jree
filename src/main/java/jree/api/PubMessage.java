@@ -1,7 +1,7 @@
 package jree.api;
 
 
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 import java.time.Instant;
 import java.util.List;

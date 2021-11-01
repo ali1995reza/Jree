@@ -1,7 +1,7 @@
 package jree.abs;
 
 import jree.api.*;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListener<BODY, ID> {
 
@@ -37,6 +37,16 @@ final class ExceptionAdaptedEventListener<BODY, ID> implements SessionEventListe
     public void onInitialized(SessionContext context) {
         try {
             wrapped.onInitialized(context);
+        }catch (Throwable e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onClosing(SessionContext context) {
+        try {
+            wrapped.onClosing(context);
         }catch (Throwable e)
         {
             e.printStackTrace();

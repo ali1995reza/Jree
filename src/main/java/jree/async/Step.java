@@ -2,7 +2,7 @@ package jree.async;
 
 import jree.api.FailReason;
 import jree.api.OperationResultListener;
-import jree.util.Assertion;
+import jutils.assertion.Assertion;
 
 public abstract class Step <PREVIOUS_PROVIDED_STEP_TYPE, CURRENT_STEP_TYPE, PROVIDE_TO_NEXT_STEP_TYPE> implements OperationResultListener<CURRENT_STEP_TYPE> {
 

@@ -33,6 +33,15 @@ public class PubMessageImpl<BODY, ID> extends SimpleAttachable implements PubMes
         this.publisher = new PublisherImpl(clientId, sessionId);
     }
 
+    public PubMessageImpl(ID id, BODY body, Instant time, Publisher publisher, Recipient recipient) {
+        this.body = body;
+        this.id = id;
+        this.time = time;
+        this.type = StaticFunctions.getType(recipient);
+        this.recipient = recipient;
+        this.publisher = publisher;
+    }
+
     public PubMessageImpl() {
     }
 

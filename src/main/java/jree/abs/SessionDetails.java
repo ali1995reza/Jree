@@ -7,6 +7,21 @@ public class SessionDetails<ID> {
     private boolean isSessionExists;
     private ID offset;
     private List<Long> subscribeList;
+    private final long clientId;
+    private final long sessionId;
+
+    public SessionDetails(long clientId, long sessionId) {
+        this.clientId = clientId;
+        this.sessionId = sessionId;
+    }
+
+    public long clientId() {
+        return clientId;
+    }
+
+    public long sessionId() {
+        return sessionId;
+    }
 
     public SessionDetails<ID> setOffset(ID offset) {
         this.offset = offset;

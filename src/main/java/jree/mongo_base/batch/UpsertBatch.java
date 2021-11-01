@@ -10,8 +10,8 @@ import com.mongodb.client.model.Updates;
 import com.mongodb.internal.async.SingleResultCallback;
 import com.mongodb.internal.async.client.AsyncMongoCollection;
 import jree.util.BatchExecutor;
-import jree.util.Converter;
-import jree.util.ConverterList;
+import jutils.collection.ListMapper;
+import jutils.collection.Mapper;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 import org.bson.Document;
@@ -47,15 +47,6 @@ public class UpsertBatch<T> extends BatchExecutor<UpsertBatch.AsyncUpsertModel<T
         }
     };
 
-
-    private final Converter<AsyncUpsertModel<T>, UpdateOneModel<Document>> CONVERTER =
-            new Converter<AsyncUpsertModel<T>, UpdateOneModel<Document>>() {
-                @Override
-                public UpdateOneModel<Document> convert(AsyncUpsertModel<T> model) {
-                    return model.update;
-                }
-            };
-
     private final static UpdateOptions UPSERT_OPTION =
             new UpdateOptions().upsert(true);
 
@@ -72,6 +63,14 @@ public class UpsertBatch<T> extends BatchExecutor<UpsertBatch.AsyncUpsertModel<T
             this.id = id;
             this.update = update;
             this.callback = callback;
+        }
+
+        public UpdateOneModel<Document> getUpdate() {
+            return update;
+        }
+
+        public SingleResultCallback<Boolean> getCallback() {
+            return callback;
         }
     }
 
@@ -198,7 +197,7 @@ public class UpsertBatch<T> extends BatchExecutor<UpsertBatch.AsyncUpsertModel<T
 
     @Override
     public void executeBatch(List<AsyncUpsertModel<T>> batch) {
-        List<UpdateOneModel<Document>> updates = new ConverterList<>(batch, CONVERTER);
+        List<UpdateOneModel<Document>> updates = ListMapper.map(batch, AsyncUpsertModel::getUpdate);
         collection.bulkWrite(updates, new BatchCallbackHandler(capturedIndex));
     }
 }
