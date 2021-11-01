@@ -36,9 +36,15 @@ public class HazelcastSessionInterceptor implements SessionInterceptor<String, S
             OpenSessionEvent openSessionEvent = (OpenSessionEvent) event;
             connectionPool.execute("INSERT INTO " + tableName + " VALUES (" + openSessionEvent.clientId() + "," + openSessionEvent.sessionId()  + ")",
                     OperationResultListener.EMPTY_LISTENER);
-        } else {
+        } else if(event instanceof CloseSessionEvent) {
             CloseSessionEvent closeSessionEvent = (CloseSessionEvent) event;
-            connectionPool.execute("DELETE FROM "+tableName+" WHERE S="+closeSessionEvent.sessionId(), OperationResultListener.EMPTY_LISTENER);
+            connectionPool.execute("DELETE FROM "+tableName+" WHERE S="+closeSessionEvent.sessionId()+" AND C="+closeSessionEvent.clientId(), OperationResultListener.EMPTY_LISTENER);
+        } else if(event instanceof RemoveSessionEvent) {
+            RemoveSessionEvent removeSessionEvent = (RemoveSessionEvent) event;
+            connectionPool.execute("DELETE FROM "+tableName+" WHERE S="+removeSessionEvent.sessionId()+" AND C="+removeSessionEvent.clientId(), OperationResultListener.EMPTY_LISTENER);
+        } else if(event instanceof RemoveClientEvent) {
+            RemoveClientEvent removeClientEvent = (RemoveClientEvent) event;
+            connectionPool.execute("DELETE FROM "+tableName+" WHERE C="+removeClientEvent.clientId(), OperationResultListener.EMPTY_LISTENER);
         }
     }
 
@@ -53,8 +59,7 @@ public class HazelcastSessionInterceptor implements SessionInterceptor<String, S
             }
             statement.execute(
                     "CREATE TABLE " + tableName + "(C BIGINT , S BIGINT)");
-            statement.execute("CREATE INDEX C_INDEX ON " + tableName + " (C)");
-            statement.execute("CREATE UNIQUE INDEX S_INDEX ON " + tableName + " (S)");
+            statement.execute("CREATE UNIQUE INDEX C_S_INDEX ON " + tableName + " (C,S)");
         } catch (Throwable e) {
             throw new IllegalStateException(e);
         }
@@ -113,11 +118,28 @@ public class HazelcastSessionInterceptor implements SessionInterceptor<String, S
 
     @Override
     public void onSessionClose(Session<String, String> session, OperationResultListener<Void> listener) {
-        connectionPool.execute("DELETE FROM "+tableName+" WHERE S="+session.id(), OperationResultListener.EMPTY_LISTENER);
+        connectionPool.execute("DELETE FROM "+tableName+" WHERE S="+session.id()+" AND C="+session.clientId(), OperationResultListener.EMPTY_LISTENER);
         sessionEventTopic.publishAsync(
                 new CloseSessionEvent(session.clientId(), session.id())
         );
         listener.onSuccess(null);
     }
 
+    @Override
+    public void onClientRemove(long clientId, OperationResultListener<Void> listener) {
+        connectionPool.execute("DELETE FROM "+tableName+" WHERE C="+clientId, OperationResultListener.EMPTY_LISTENER);
+        sessionEventTopic.publishAsync(
+                new RemoveClientEvent(clientId)
+        );
+        listener.onSuccess(null);
+    }
+
+    @Override
+    public void onSessionRemove(long clientId, long sessionId, OperationResultListener<Void> listener) {
+        connectionPool.execute("DELETE FROM "+tableName+" WHERE S="+sessionId+" AND C="+clientId, OperationResultListener.EMPTY_LISTENER);
+        sessionEventTopic.publishAsync(
+                new RemoveSessionEvent(clientId, sessionId)
+        );
+        SessionInterceptor.super.onSessionRemove(clientId, sessionId, listener);
+    }
 }

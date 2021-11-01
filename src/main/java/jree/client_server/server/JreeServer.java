@@ -226,15 +226,15 @@ public class JreeServer {
                 users.get(user)
                         .publishMessage(RecipientImpl.clientRecipient(id) ,
                                 message);
-            }/*else if(command.equalsIgnoreCase("remove")) {
+            }else if(command.equalsIgnoreCase("remove")) {
                 boolean b = pubSubSystem.sessionManager()
-                        .removeClient(users.get(user).clientId());
+                        .removeClient(users.get(user).getSession().clientId());
                 System.out.println(b);
             } else if(command.equalsIgnoreCase("remove_session")){
                 boolean b = pubSubSystem.sessionManager()
-                        .removeSession(users.get(user).clientId(), users.get(user).id());
+                        .removeSession(users.get(user).getSession().clientId(), users.get(user).getSession().id());
                 System.out.println(b);
-            }*/
+            }
         }
     }
 }

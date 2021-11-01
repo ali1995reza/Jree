@@ -56,6 +56,18 @@ public class JreeClient {
         doSendMsg(jsonObject);
     }
 
+    public void removeSession() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("command", "remove_session");
+        doSendMsg(jsonObject);
+    }
+
+    public void removeClient() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("command", "remove");
+        doSendMsg(jsonObject);
+    }
+
     public void sendSignal(String signal, String recipient) {
 
     }
@@ -87,6 +99,7 @@ public class JreeClient {
 
         @Override
         public void onWebSocketClose(int i, String s) {
+            System.out.println("ITS CLOSEEDDDD !");
         }
 
         @Override

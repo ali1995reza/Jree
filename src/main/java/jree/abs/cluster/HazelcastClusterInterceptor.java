@@ -40,12 +40,24 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                         .setTypeClass(Subscribe.class)
                 ).addSerializerConfig(
                         new SerializerConfig()
+                                .setImplementation(new UnsubscribeSerializer())
+                                .setTypeClass(Unsubscribe.class)
+                ).addSerializerConfig(
+                        new SerializerConfig()
                         .setImplementation(new OpenSessionEventSerializer())
                         .setTypeClass(OpenSessionEvent.class)
                 ).addSerializerConfig(
                         new SerializerConfig()
                         .setImplementation(new CloseSessionEventSerializer())
                         .setTypeClass(CloseSessionEvent.class)
+                ).addSerializerConfig(
+                        new SerializerConfig()
+                                .setImplementation(new RemoveSessionSerializer())
+                                .setTypeClass(RemoveSessionEvent.class)
+                ).addSerializerConfig(
+                        new SerializerConfig()
+                                .setImplementation(new RemoveClientSerializer())
+                                .setTypeClass(RemoveClientEvent.class)
                 );
         this.hazelcastInstance = Hazelcast.newHazelcastInstance(config);
         messageTopic = hazelcastInstance.getReliableTopic("messages");
@@ -74,6 +86,21 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
             }
         });
         sessionEventTopic = hazelcastInstance.getReliableTopic("sessions");
+        sessionEventTopic.addMessageListener(m->{
+           if(m.getPublishingMember().localMember())
+               return;
+
+           Object messageObject = m.getMessageObject();
+
+           if(messageObject instanceof RemoveSessionEvent) {
+               RemoveSessionEvent event = (RemoveSessionEvent) messageObject;
+               context.notifyRemoveSession(event.clientId(), event.sessionId());
+           }else if(messageObject instanceof RemoveClientEvent) {
+               RemoveClientEvent event = (RemoveClientEvent) messageObject;
+               context.notifyRemoveClient(event.clientId());
+           }
+
+        });
         messageInterceptor = new HazelcastMessageInterceptor(messageTopic, signalTopic);
         subscriptionInterceptor = new HazelcastSubscriptionInterceptor(subscriptionTopic);
         sessionInterceptor = new HazelcastSessionInterceptor(sessionEventTopic);
