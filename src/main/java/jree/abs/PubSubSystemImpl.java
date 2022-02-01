@@ -1,12 +1,15 @@
 package jree.abs;
 
 import jree.abs.cache.RelationAndExistenceCache;
+import jree.abs.funcs.ForEach;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.parts.*;
 import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.interceptor.InterceptorContext;
 import jree.api.*;
 import jutils.assertion.Assertion;
+
+import java.util.List;
 
 final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubSystem<BODY, ID> {
 
@@ -19,7 +22,7 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
         Assertion.ifOneNull("some provided parts are null", messageStore, detailsStore, idBuilder, interceptor);
         this.idBuilder = idBuilder;
         this.clientsHolder = new ClientsHolder();
-        final ConversationSubscribersHolder<BODY, ID> subscribers =  new ConversationSubscribersHolder<>(clientsHolder, "jdbc:h2:mem:db1");
+        final SubscribersHolder subscribers =  new InMemorySubscribersHolder();
         final RelationAndExistenceCache<ID> cache = new RelationAndExistenceCache<>(
                 detailsStore,
                 messageStore
@@ -46,11 +49,11 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
 
     private final static class InterceptorContextImpl<BODY, ID extends Comparable<ID>> implements InterceptorContext<BODY, ID> {
 
-        private final ConversationSubscribersHolder<BODY, ID> subscribers;
+        private final SubscribersHolder subscribers;
         private final ClientsHolder clientsHolder;
         private final RelationAndExistenceCache<ID> cache;
 
-        private InterceptorContextImpl(ConversationSubscribersHolder<BODY, ID> subscribers, ClientsHolder clientsHolder, RelationAndExistenceCache<ID> cache) {
+        private InterceptorContextImpl(SubscribersHolder subscribers, ClientsHolder clientsHolder, RelationAndExistenceCache<ID> cache) {
             this.subscribers = subscribers;
             this.clientsHolder = clientsHolder;
             this.cache = cache;
@@ -60,7 +63,7 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
         @Override
         public void notifyMessage(PubMessage<BODY, ID> message) {
             if (message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
-                subscribers.publishMessage(message);
+                publishMessageToConversation(message.recipient().conversation(), message);
             } else {
                 clientsHolder.publishMessage(message.publisher().client(), message);
                 clientsHolder.publishMessage(message.recipient().client(), message);
@@ -70,7 +73,7 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
         @Override
         public void notifySignal(Signal<BODY> signal) {
             if (signal.recipient().conversation() > 0) {
-                subscribers.sendSignal(signal);
+                sendSignalToConversation(signal.recipient().conversation(), signal);
             } else {
                 clientsHolder.sendSignal(signal.recipient().client(), signal);
             }
@@ -78,12 +81,12 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
 
         @Override
         public void notifyUnsubscribe(Recipient subscriber, long conversationId) {
-            subscribers.removeSubscriber(conversationId, subscriber);
+            subscribers.removeSubscriber(conversationId, subscriber.client(), OperationResultListener.EMPTY_LISTENER);
         }
 
         @Override
         public void notifySubscribe(Recipient recipient, long conversationId) {
-            subscribers.addSubscriber(conversationId, recipient);
+            subscribers.addSubscriber(conversationId, recipient.client(), OperationResultListener.EMPTY_LISTENER);
         }
 
         @Override
@@ -99,8 +102,31 @@ final class PubSubSystemImpl<BODY, ID extends Comparable<ID>> implements PubSubS
         }
 
         @Override
-        public void notifyShutdown() {
+        public void notifyShutdown(int code) {
             //todo shutdown system
+            System.exit(code);
+        }
+
+        private void publishMessageToConversation(long conversation, PubMessage message) {
+            subscribers.getSubscribers(conversation, new ForEach<List<Long>>() {
+                @Override
+                public void accept(List<Long> subscribeList) {
+                    for(Long clientId : subscribeList) {
+                        clientsHolder.publishMessage(clientId, message);
+                    }
+                }
+            });
+        }
+
+        private void sendSignalToConversation(long conversation, Signal signal) {
+            subscribers.getSubscribers(conversation, new ForEach<List<Long>>() {
+                @Override
+                public void accept(List<Long> subscribeList) {
+                    for(Long clientId : subscribeList) {
+                        clientsHolder.sendSignal(clientId, signal);
+                    }
+                }
+            });
         }
 
     }

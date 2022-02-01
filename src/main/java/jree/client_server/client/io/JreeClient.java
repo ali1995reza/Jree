@@ -41,49 +41,16 @@ public class JreeClient {
         }
     }
 
-    public void auth(String token) {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("command", "connect");
-        jsonObject.put("token", token);
-        doSendMsg(jsonObject);
-    }
-
-    public void sendMessage(String message, String recipient) {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("command", "publish2");
-        jsonObject.put("username", recipient);
-        jsonObject.put("message", message);
-        doSendMsg(jsonObject);
-    }
-
-    public void removeSession() {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("command", "remove_session");
-        doSendMsg(jsonObject);
-    }
-
-    public void removeClient() {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("command", "remove");
-        doSendMsg(jsonObject);
-    }
-
-    public void sendSignal(String signal, String recipient) {
-
+    public void executeCommand(String command) {
+        doSendMsg(command);
     }
 
     private void doSendMsg(String message) {
-        //todo send message please !
         try {
             session.getRemote().sendString(message);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    private void doSendMsg(JSONObject message) {
-        //todo send message please !
-        this.doSendMsg(message.toString());
     }
 
     private final class SocketHandler implements WebSocketListener {

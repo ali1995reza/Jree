@@ -7,11 +7,14 @@ import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.abs.PubSubSystemBuilder;
 import jree.abs.cluster.HazelcastClusterInterceptor;
 import jree.abs.objects.RecipientImpl;
-import jree.abs.parts.interceptor.Interceptor;
-import jree.abs.parts.interceptor.InterceptorContext;
-import jree.abs.parts.interceptor.MessageInterceptor;
 import jree.abs.utils.StringIDBuilder;
 import jree.api.*;
+import jree.client_server.server.cli.ServerCommandLine;
+import jree.client_server.server.cli.commands.ConnectCommand;
+import jree.client_server.server.cli.commands.JoinConversationCommand;
+import jree.client_server.server.cli.commands.LeaveConversationCommand;
+import jree.client_server.server.cli.commands.SendMessageCommand;
+import jree.client_server.server.command.standard.HelpCommand;
 import jree.mongo_base.MongoDetailsStore;
 import jree.mongo_base.MongoMessageStore;
 import jree.mongo_base.batch.BatchContext;
@@ -21,7 +24,10 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.json.JSONObject;
-import spark.*;
+import spark.ExceptionHandler;
+import spark.Request;
+import spark.Response;
+import spark.Spark;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,13 +44,13 @@ public class JreeServer {
     public JreeServer(int port) {
         this.port = port;
         AsyncMongoClient client = AsyncMongoClients.create();
-        AsyncMongoDatabase database = client.getDatabase("MSG_"+"MINE");
+        AsyncMongoDatabase database = client.getDatabase("MSG_" + "MINE");
         BatchContext batchContext = new BatchContext(Executors.newScheduledThreadPool(1));
         loginSignupHandler = new LoginSignupHandler(MongoClients.create().getDatabase("USERS_DB"));
         pubSubSystem = PubSubSystemBuilder.newBuilder(
-                String.class, String.class
-        ).setDetailsStore(new MongoDetailsStore<>(database , batchContext))
-                .setMessageStore(new MongoMessageStore<>(database , batchContext))
+                        String.class, String.class
+                ).setDetailsStore(new MongoDetailsStore<>(database, batchContext))
+                .setMessageStore(new MongoMessageStore<>(database, batchContext))
                 .setIdBuilder(new StringIDBuilder(1, System::currentTimeMillis))
                 .addInterceptor(new HazelcastClusterInterceptor())
                 .build();
@@ -55,8 +61,8 @@ public class JreeServer {
         Spark.port(port);
         Spark.ipAddress("0.0.0.0");
         Spark.webSocket("/chat", new MessageHandler(loginSignupHandler, pubSubSystem));
-        Spark.post("/login",this::login);
-        Spark.post("/signup",this::signup);
+        Spark.post("/login", this::login);
+        Spark.post("/signup", this::signup);
         Spark.exception(Exception.class, new ExceptionHandler() {
             @Override
             public void handle(Exception e, Request request, Response response) {
@@ -73,7 +79,7 @@ public class JreeServer {
         String token = null;
         try {
             token = loginSignupHandler.login(username, password, this::createSession);
-            System.out.println("CREATED TOKEN IS : "+token);
+            System.out.println("CREATED TOKEN IS : " + token);
         } catch (LoginSignupException e) {
             response.status(e.getCode());
             return null;
@@ -109,11 +115,12 @@ public class JreeServer {
     public final static class MessageHandler {
         private final ConcurrentHashMap<org.eclipse.jetty.websocket.api.Session, SessionAndCommands> users =
                 new ConcurrentHashMap<>();
+        private final static ServerCommandLine commandLine = new ServerCommandLine();
 
         private final LoginSignupHandler loginSignupHandler;
         private final PubSubSystem<String, String> pubSubSystem;
 
-        public MessageHandler(LoginSignupHandler loginSignupHandler, PubSubSystem<String, String> pubSubSystem){
+        public MessageHandler(LoginSignupHandler loginSignupHandler, PubSubSystem<String, String> pubSubSystem) {
             this.loginSignupHandler = loginSignupHandler;
             this.pubSubSystem = pubSubSystem;
         }
@@ -124,116 +131,122 @@ public class JreeServer {
         }
 
         @OnWebSocketClose
-        public void onClose(org.eclipse.jetty.websocket.api.Session user , int code , String message) {
+        public void onClose(org.eclipse.jetty.websocket.api.Session user, int code, String message) {
             //handle this like a charm !
             SessionAndCommands session = users.remove(user);
-            if (session!=null)
+            if (session != null)
                 session.getSession().close();
         }
 
         @OnWebSocketMessage
-        public void onMessage(Session user , String msg) {
-            JSONObject jsonObject = new JSONObject(msg);
-            String command = jsonObject.getString("command");
-            if(command.equalsIgnoreCase("connect")){
-                String token = jsonObject.getString("token");
-                Long[] login = loginSignupHandler.verifyToken(token);
-                long start = System.currentTimeMillis();
-                jree.api.Session ss = pubSubSystem.sessionManager()
-                        .openSession(login[0], login[1], RelationController.ALWAYS_ACCEPT, new SessionEventListener<String, String>() {
-                            @Override
-                            public void onMessagePublished(SessionContext context, PubMessage<String, String> message) {
-                                try {
-                                    user.getRemote().sendString(message.toString());
-                                    context.currentSession().attach(message.id());
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
+        public void onMessage(Session user, String msg) {
+            Object commandObject = commandLine.parse(msg);
+            //todo add send signal command
+            //todo add get messages command
+            //todo add remove session command
+
+            if (commandObject instanceof ConnectCommand) {
+                handleConnectCommand(user, (ConnectCommand) commandObject);
+            } else if (commandObject instanceof SendMessageCommand) {
+                handleSendMessageCommand(user, (SendMessageCommand) commandObject);
+            } else if (commandObject instanceof JoinConversationCommand) {
+                handleJoinConversationCommand(user, (JoinConversationCommand) commandObject);
+            } else if (commandObject instanceof LeaveConversationCommand) {
+                handleLeaveConversationCommand(user, (LeaveConversationCommand) commandObject);
+            } else if (commandObject instanceof HelpCommand) {
+                handleHelpCommand(user, (HelpCommand) commandObject);
+            }
+        }
+
+
+        private void handleConnectCommand(Session user, ConnectCommand command) {
+            Long[] login = loginSignupHandler.verifyToken(command.getToken());
+            long start = System.currentTimeMillis();
+            jree.api.Session ss = pubSubSystem.sessionManager()
+                    .openSession(login[0], login[1], RelationController.ALWAYS_ACCEPT, new SessionEventListener<String, String>() {
+                        @Override
+                        public void onMessagePublished(SessionContext context, PubMessage<String, String> message) {
+                            try {
+                                user.getRemote().sendString(message.toString());
+                                context.currentSession().attach(message.id());
+                            } catch (IOException e) {
+                                e.printStackTrace();
                             }
+                        }
 
-                            @Override
-                            public void onSignalReceived(SessionContext context, Signal<String> signal) {
-                                try{
-                                    user.getRemote().sendString(signal.toString());
-                                }catch (IOException e)
-                                {
-                                    e.printStackTrace();
-                                }
+                        @Override
+                        public void onSignalReceived(SessionContext context, Signal<String> signal) {
+                            try {
+                                user.getRemote().sendString(signal.toString());
+                            } catch (IOException e) {
+                                e.printStackTrace();
                             }
+                        }
 
-                            @Override
-                            public void onInitialized(SessionContext context) {
-                            }
+                        @Override
+                        public void onInitialized(SessionContext context) {
+                        }
 
-                            @Override
-                            public void onClosing(SessionContext context) {
-                                context.currentSession()
-                                        .setMessageOffset(context.currentSession().attachment());
-                            }
+                        @Override
+                        public void onClosing(SessionContext context) {
+                            context.currentSession()
+                                    .setMessageOffset(context.currentSession().attachment());
+                        }
 
-                            @Override
-                            public void onClosedByException(SessionContext context, Throwable exception) {
-                                user.close();
-                            }
+                        @Override
+                        public void onClosedByException(SessionContext context, Throwable exception) {
+                            user.close();
+                        }
 
-                            @Override
-                            public void onCloseByCommand(SessionContext context) {
-                                user.close();
-                            }
-                        });
+                        @Override
+                        public void onCloseByCommand(SessionContext context) {
+                            user.close();
+                        }
+                    });
 
-                System.out.println(System.currentTimeMillis()-start);
+            System.out.println(System.currentTimeMillis() - start);
 
-                users.put(user , new SessionAndCommands(pubSubSystem, ss));
-            } else if(command.equalsIgnoreCase("publish")){
-                String message = jsonObject.getString("message");
-                long recipientClient = jsonObject.getLong("client");
-                long recipientSession = -1;
-                if(jsonObject.has("session")){
-                    recipientSession = jsonObject.getLong("session");
-                }
+            users.put(user, new SessionAndCommands(pubSubSystem, ss));
+        }
 
+        private void handleSendMessageCommand(Session user, SendMessageCommand command) {
+            String recipientStr = command.getRecipient();
+            if (recipientStr.startsWith("co_")) {
+                Long conversation = Long.parseLong(recipientStr.substring(3));
                 users.get(user)
-                        .publishMessage(RecipientImpl.sessionRecipient(recipientClient, recipientSession) ,
-                                message);
-            }else if(command.equalsIgnoreCase("signal")){
-                String message = jsonObject.getString("message");
-                long recipientClient = jsonObject.getLong("client");
-
+                        .publishMessage(RecipientImpl.conversationRecipient(conversation), command.getMessage());
+            } else if (recipientStr.startsWith("cl_")) {
+                Long clientId = Long.parseLong(recipientStr.substring(3));
                 users.get(user)
-                        .sendSignal(RecipientImpl.clientRecipient(recipientClient) ,
-                                message);
-            } else if(command.equalsIgnoreCase("getMessages")) {
-                SessionAndCommands sessionAndCommands = users.get(user);
-                Iterable<PubMessage<String, String>> iter = sessionAndCommands.getMessagesOfAllConversations(20);
-                for(PubMessage message:iter) {
-                    try {
-                        user.getRemote().sendString(message.toString());
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            } else if(command.equalsIgnoreCase("publish2")){
-
-                String username = jsonObject.getString("username");
-                Long id = loginSignupHandler.getClientIdFromUsername(username);
-
-                if(id==null)
-                    return;
-
-                String message = jsonObject.getString("message");
-
+                        .publishMessage(RecipientImpl.clientRecipient(clientId), command.getMessage());
+            } else if (recipientStr.startsWith("usr_")) {
+                Long clientId = loginSignupHandler.getClientIdFromUsername(recipientStr.substring(4));
                 users.get(user)
-                        .publishMessage(RecipientImpl.clientRecipient(id) ,
-                                message);
-            }else if(command.equalsIgnoreCase("remove")) {
-                boolean b = pubSubSystem.sessionManager()
-                        .removeClient(users.get(user).getSession().clientId());
-                System.out.println(b);
-            } else if(command.equalsIgnoreCase("remove_session")){
-                boolean b = pubSubSystem.sessionManager()
-                        .removeSession(users.get(user).getSession().clientId(), users.get(user).getSession().id());
-                System.out.println(b);
+                        .publishMessage(RecipientImpl.clientRecipient(clientId), command.getMessage());
+            }
+
+        }
+
+        private void handleJoinConversationCommand(Session user, JoinConversationCommand command) {
+            pubSubSystem
+                    .messageManager()
+                    .createConversation(command.getConversation(), OperationResultListener.EMPTY_LISTENER);
+            users.get(user)
+                    .getSession()
+                    .subscribe(command.getConversation());
+        }
+
+        private void handleLeaveConversationCommand(Session user, LeaveConversationCommand command) {
+            users.get(user)
+                    .getSession()
+                    .unsubscribe(command.getConversation());
+        }
+
+        private void handleHelpCommand(Session user, HelpCommand command) {
+            try {
+                user.getRemote().sendString(command.getHelp());
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }

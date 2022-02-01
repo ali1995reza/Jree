@@ -10,7 +10,7 @@ final class CollectionNames {
 
     final static String SUBSCRIBES_COLLECTION_NAME = "SUBSCRIBES";
 
-    final static String CONVERSATION_COLLECTION_NAME = "MSG_COUNTER";
+    final static String CONVERSATIONS_COLLECTION_NAME = "CONVERSATIONS";
 
     final static String MESSAGE_COLLECTION_NAME = "MSG";
 

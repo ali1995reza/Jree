@@ -3,10 +3,8 @@ package jree.mongo_base;
 import com.mongodb.Block;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.PushOptions;
-import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.internal.async.SingleResultCallback;
-import com.mongodb.internal.async.client.AsyncMongoCollection;
 import com.mongodb.internal.async.client.AsyncMongoDatabase;
 import jree.abs.codes.FailReasonsCodes;
 import jree.abs.funcs.ForEach;
@@ -79,7 +77,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
         //this.database = database;
         //this.batchContext = batchContext;
         messageCollection = new CollectionInfo(MESSAGE_COLLECTION_NAME, database);
-        conversationCollection = new CollectionInfo(CONVERSATION_COLLECTION_NAME, database);
+        conversationCollection = new CollectionInfo(CONVERSATIONS_COLLECTION_NAME, database);
 
         /*DBStaticFunctions.createIndex(
                 messageCollection,

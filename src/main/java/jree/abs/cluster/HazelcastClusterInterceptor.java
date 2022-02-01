@@ -1,5 +1,7 @@
 package jree.abs.cluster;
 
+import com.hazelcast.cluster.MembershipEvent;
+import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.SerializerConfig;
 import com.hazelcast.core.Hazelcast;
@@ -60,6 +62,20 @@ public class HazelcastClusterInterceptor implements Interceptor<String, String> 
                                 .setTypeClass(RemoveClientEvent.class)
                 );
         this.hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+        this.hazelcastInstance.getCluster()
+                .addMembershipListener(new MembershipListener() {
+                    @Override
+                    public void memberAdded(MembershipEvent membershipEvent) {
+
+                    }
+
+                    @Override
+                    public void memberRemoved(MembershipEvent membershipEvent) {
+                        if(membershipEvent.getMember().localMember()) {
+                            context.notifyShutdown(200);
+                        }
+                    }
+                });
         messageTopic = hazelcastInstance.getReliableTopic("messages");
         messageTopic.addMessageListener(m->{
             if(m.getPublishingMember().localMember())

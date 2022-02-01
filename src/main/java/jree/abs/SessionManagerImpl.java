@@ -7,6 +7,7 @@ import jree.abs.funcs.ForEach;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
+import jree.abs.parts.SubscribersHolder;
 import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.abs.utils.StaticFunctions;
@@ -23,13 +24,13 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
     private final DetailsStore<ID> detailsStore;
     private final Interceptor<BODY, ID> interceptor;
     private final ClientsHolder clients;
-    private final ConversationSubscribersHolder<BODY, ID> subscribers;
+    private final SubscribersHolder subscribers;
     private final RelationAndExistenceCache<ID> cache;
     private final IdBuilder<ID> idBuilder;
     private boolean close = false;
     private boolean canAcceptSessions = true;
 
-    public SessionManagerImpl(MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, Interceptor<BODY, ID> interceptor, ClientsHolder clients, ConversationSubscribersHolder<BODY, ID> subscribers, RelationAndExistenceCache<ID> cache, IdBuilder<ID> idBuilder) {
+    public SessionManagerImpl(MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, Interceptor<BODY, ID> interceptor, ClientsHolder clients, SubscribersHolder subscribers, RelationAndExistenceCache<ID> cache, IdBuilder<ID> idBuilder) {
         this.messageStore = messageStore;
         this.detailsStore = detailsStore;
         this.interceptor = interceptor;
@@ -273,6 +274,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
 
     @Override
     public void getPresence(List<Long> ids, OperationResultListener<List<Presence>> callback) {
+        callback.onFailed(new FailReason(12555));
     }
 
     @Override
@@ -394,7 +396,7 @@ final class SessionManagerImpl<BODY, ID extends Comparable<ID>> implements Sessi
                     return;
                 }
                 if (result.isFirstSession()) {
-                    subscribers.addSubscriber(details.subscribeList(), session);
+                    subscribers.addSubscriber(details.subscribeList(), session.clientId(), EMPTY_LISTENER);
                     //if just first session add it to subscriber list
                 }
                 messageStore.readStoredMessage(session,

@@ -18,7 +18,7 @@ public interface InterceptorContext<BODY, ID> {
 
     void notifyRemoveClient(long clientId);
 
-    void notifyShutdown();
+    void notifyShutdown(int code);
 
     //todo add more functions
 

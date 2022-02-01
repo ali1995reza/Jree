@@ -2,12 +2,14 @@ package jree.abs;
 
 import jree.abs.cache.RelationAndExistenceCache;
 import jree.abs.funcs.AsyncToSync;
+import jree.abs.funcs.ForEach;
 import jree.abs.objects.PubMessageImpl;
 import jree.abs.objects.PublisherImpl;
 import jree.abs.objects.RecipientImpl;
 import jree.abs.objects.SignalImpl;
 import jree.abs.parts.DetailsStore;
 import jree.abs.parts.IdBuilder;
+import jree.abs.parts.SubscribersHolder;
 import jree.abs.parts.interceptor.Interceptor;
 import jree.abs.parts.MessageStore;
 import jree.api.*;
@@ -31,7 +33,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     private final MessageStore<BODY, ID> messageStore;
     private final DetailsStore<ID> detailsStore;
     private final ClientsHolder holder;
-    private final ConversationSubscribersHolder<BODY, ID> subscribers;
+    private final SubscribersHolder subscribers;
     private final RelationController controller;
     private List<PubMessage> pubMessages = new ArrayList<>();
     private final RelationAndExistenceCache cache;
@@ -40,7 +42,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     private final IdBuilder<ID> idIdBuilder;
     private final Interceptor<BODY, ID> interceptor;
 
-    public SessionImpl(long clientId, long sessionId, SessionEventListener listener, MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, ClientsHolder holder, ConversationSubscribersHolder<BODY, ID> subscribers, RelationController controller, RelationAndExistenceCache cache, IdBuilder<ID> idIdBuilder, Interceptor<BODY, ID> interceptor) {
+    public SessionImpl(long clientId, long sessionId, SessionEventListener listener, MessageStore<BODY, ID> messageStore, DetailsStore<ID> detailsStore, ClientsHolder holder, SubscribersHolder subscribers, RelationController controller, RelationAndExistenceCache cache, IdBuilder<ID> idIdBuilder, Interceptor<BODY, ID> interceptor) {
         this.clientId = clientId;
         this.sessionId = sessionId;
         this.listener = listener;
@@ -69,9 +71,31 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         closeByCommand();
     }
 
+    private void publishMessageToConversation(long conversation, PubMessage message) {
+        subscribers.getSubscribers(conversation, new ForEach<List<Long>>() {
+            @Override
+            public void accept(List<Long> subscribeList) {
+                for(Long clientId : subscribeList) {
+                    holder.publishMessage(clientId, message);
+                }
+            }
+        });
+    }
+
+    private void sendSignalToConversation(long conversation, Signal signal) {
+        subscribers.getSubscribers(conversation, new ForEach<List<Long>>() {
+            @Override
+            public void accept(List<Long> subscribeList) {
+                for(Long clientId : subscribeList) {
+                    holder.sendSignal(clientId, signal);
+                }
+            }
+        });
+    }
+
     private void onPublishedMessageStoredSuccessfully(PubMessage message, OperationResultListener<PubMessage<BODY, ID>> callback) {
         if (message.type().is(PubMessage.Type.CLIENT_TO_CONVERSATION)) {
-            subscribers.publishMessage(message);
+            publishMessageToConversation(message.recipient().conversation(), message);
         } else if (message.type().is(PubMessage.Type.CLIENT_TO_CLIENT)) {
             holder.publishMessage(clientId, message);
             holder.publishMessage(message.recipient().client(), message);
@@ -84,7 +108,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
 
     private void onSignalPublished(Signal<BODY> signal, OperationResultListener<Signal<BODY>> callback) {
         if (signal.recipient().conversation() > 0) {
-            subscribers.sendSignal(signal);
+            sendSignalToConversation(signal.recipient().conversation(), signal);
             callback.onSuccess(signal);
         } else {
             holder.sendSignal(signal.recipient().client(), signal);
@@ -510,7 +534,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
     }
 
     private final void removeSubscriptions() {
-        subscribers.remove(this, OperationResultListener.EMPTY_LISTENER);
+        subscribers.removeSubscriberFromAllConversations(this.clientId);
     }
 
     void onInitialized() {
@@ -750,7 +774,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         protected void doExecute(Boolean providedValue, OperationResultListener<Boolean> target) {
             if(providedValue) {
                 //do it means success !
-                subscribers.addSubscriber(conversation, SessionImpl.this);
+                subscribers.addSubscriber(conversation, SessionImpl.this.clientId, EMPTY_LISTENER);
                 target.onSuccess(true);
             } else {
                 target.onSuccess(false);
@@ -807,7 +831,7 @@ final class SessionImpl<BODY, ID extends Comparable<ID>> extends SimpleAttachabl
         @Override
         public void doExecute(Boolean result, OperationResultListener<Boolean> target) {
             if (result) {
-                subscribers.removeSubscriber(conversation, SessionImpl.this);
+                subscribers.removeSubscriber(conversation, SessionImpl.this.clientId, EMPTY_LISTENER);
                 target.onSuccess(true);
             } else {
                 target.onSuccess(false);
