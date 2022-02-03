@@ -161,7 +161,6 @@ public class JreeServer {
 
         private void handleConnectCommand(Session user, ConnectCommand command) {
             Long[] login = loginSignupHandler.verifyToken(command.getToken());
-            long start = System.currentTimeMillis();
             jree.api.Session ss = pubSubSystem.sessionManager()
                     .openSession(login[0], login[1], RelationController.ALWAYS_ACCEPT, new SessionEventListener<String, String>() {
                         @Override
@@ -203,8 +202,6 @@ public class JreeServer {
                             user.close();
                         }
                     });
-
-            System.out.println(System.currentTimeMillis() - start);
 
             users.put(user, new SessionAndCommands(pubSubSystem, ss));
         }

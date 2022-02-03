@@ -167,10 +167,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                 (v,t)->forEach.done(t)
         );
 
-        if(Boolean.TRUE)
-            return;
-
-        messageCollection.collection().find(
+        /*messageCollection.collection().find(
                 sessionToSessionFilter(offset , session)).sort(ID_SORT).forEach(
                 new Block<Document>() {
                     @Override
@@ -223,7 +220,7 @@ public class MongoMessageStore<BODY, ID extends Comparable<ID>> implements Messa
                                     }
                                 });
                     }
-                });
+                });*/
     }
 
     public void addConversation(final long conversation, OperationResultListener<Long> callback) {

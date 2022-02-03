@@ -69,8 +69,6 @@ public class LoginSignupHandler {
                 eq("password", hash(password))))
                 .first();
 
-        System.out.println(document);
-
         if(document==null)
             throw LoginSignupException._401;
 

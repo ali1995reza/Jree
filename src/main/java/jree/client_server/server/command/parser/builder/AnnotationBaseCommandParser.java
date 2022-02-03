@@ -12,10 +12,16 @@ import org.apache.commons.cli.HelpFormatter;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AnnotationBaseCommandParser implements CommandParser {
+
+    private final static Pattern COMMAND_PARTS_PATTERN = Pattern.compile("(([^\\s\"]+)|([\"].*[\"]))");
 
     private final static HelpFormatter HELP_FORMATTER = new HelpFormatter();
 
@@ -31,10 +37,20 @@ public class AnnotationBaseCommandParser implements CommandParser {
         this.helpString = getHelpString();
     }
 
+    String[] getParts(String str) {
+        List<String> list = new ArrayList<>();
+        Matcher matcher = COMMAND_PARTS_PATTERN.matcher(str);
+        while (matcher.find()) {
+            list.add(str.substring(matcher.start(), matcher.end()).replace("\"", ""));
+        }
+        String[] parts = new String[list.size()];
+        return list.toArray(parts);
+    }
+
     @Override
     public Object parse(String command) throws CommandException {
         Assert.isNotBlank(command, EmptyCommandException::new);
-        String[] parts = command.split("\\s+");
+        String[] parts = getParts(command);
         String commandName = parts[0];
         ParsedCommand parsedCommand = commandMap.get(commandName);
         Assert.isNotNull(parsedCommand, () -> CommandNotFoundException.of(commandName));

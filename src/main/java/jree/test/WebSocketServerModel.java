@@ -163,11 +163,9 @@ public class WebSocketServerModel {
             } else if(command.equalsIgnoreCase("remove")) {
                 boolean b = pubSubSystem.sessionManager()
                         .removeClient(users.get(user).clientId());
-                System.out.println(b);
             } else if(command.equalsIgnoreCase("remove_session")){
                 boolean b = pubSubSystem.sessionManager()
                         .removeSession(users.get(user).clientId(), users.get(user).id());
-                System.out.println(b);
             }
         }
 
